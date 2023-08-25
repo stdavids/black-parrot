@@ -6,11 +6,6 @@
  * Description:
  *   This is the top level module for a unicore BlackParrot processor.
  *
- *   The unicore contains:
- *   - a BlackParrot processor core and devices (config, clint, CCE loopback) in bp_unicore_lite
- *   - L2 cache slice in bsg_cache
- *   - core to cache adapter in bp_me_cce_to_cache
- *
  */
 
 `include "bp_common_defines.svh"

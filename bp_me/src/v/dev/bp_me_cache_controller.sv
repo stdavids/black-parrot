@@ -1,6 +1,6 @@
 /*
  * Name:
- *   bp_me_cce_to_cache.sv
+ *   bp_me_cache_controller.sv
  *
  * Description:
  *   This module converts an arriving BedRock Stream message into a bsg_cache message, and
@@ -17,7 +17,7 @@
 `include "bp_me_defines.svh"
 `include "bsg_cache.vh"
 
-module bp_me_cce_to_cache
+module bp_me_cache_controller
  import bp_common_pkg::*;
  import bp_me_pkg::*;
  import bsg_cache_pkg::*;
