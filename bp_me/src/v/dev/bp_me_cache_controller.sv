@@ -189,7 +189,6 @@ module bp_me_cache_controller
    fsm_fwd_hash
     (.daddr_i(fsm_fwd_addr_li[0+:daddr_width_p])
      ,.daddr_o(cache_pkt_addr_lo)
-     ,.bank_o(cache_fwd_bank_lo)
      );
 
   bp_bedrock_mem_rev_header_s fsm_rev_header_lo;
