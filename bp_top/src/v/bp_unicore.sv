@@ -89,20 +89,19 @@ module bp_unicore
   always_ff @(posedge clk_i)
     reset_r <= reset_i;
 
-  localparam num_proc_lp = 3;
-  localparam num_dev_lp  = 5;
-  localparam lg_num_proc_lp = `BSG_SAFE_CLOG2(num_proc_lp);
-  localparam lg_num_dev_lp = `BSG_SAFE_CLOG2(num_dev_lp);
-
   localparam icache_proc_id_lp =                     0;
   localparam dcache_proc_id_lp = icache_proc_id_lp + 1;
   localparam io_proc_id_lp     = dcache_proc_id_lp + 1;
+  localparam num_proc_lp       = io_proc_id_lp + 1;
+  localparam lg_num_proc_lp    = `BSG_SAFE_CLOG2(num_proc_lp);
 
   localparam cfg_dev_id_lp      =                      0;
   localparam clint_dev_id_lp    = cfg_dev_id_lp      + 1;
   localparam l2s_dev_base_id_lp = clint_dev_id_lp    + 1;
   localparam io_dev_id_lp       = l2s_dev_base_id_lp + l2_banks_p;
   localparam loopback_dev_id_lp = io_dev_id_lp       + 1;
+  localparam num_dev_lp         = loopback_dev_id_lp + 1;
+  localparam lg_num_dev_lp      = `BSG_SAFE_CLOG2(num_dev_lp);
 
 
   // {IO, BE UCE, FE UCE}
@@ -336,17 +335,17 @@ module bp_unicore
          ,.mem_rev_v_o(dev_rev_v_lo[l2s_dev_base_id_lp+i])
          ,.mem_rev_ready_and_i(dev_rev_ready_and_li[l2s_dev_base_id_lp+i])
 
-         ,.dma_pkt_o(dma_pkt_o)
-         ,.dma_pkt_v_o(dma_pkt_v_o)
-         ,.dma_pkt_ready_and_i(dma_pkt_ready_and_i)
+         ,.dma_pkt_o(dma_pkt_o[i])
+         ,.dma_pkt_v_o(dma_pkt_v_o[i])
+         ,.dma_pkt_ready_and_i(dma_pkt_ready_and_i[i])
 
-         ,.dma_data_i(dma_data_i)
-         ,.dma_data_v_i(dma_data_v_i)
-         ,.dma_data_ready_and_o(dma_data_ready_and_o)
+         ,.dma_data_i(dma_data_i[i])
+         ,.dma_data_v_i(dma_data_v_i[i])
+         ,.dma_data_ready_and_o(dma_data_ready_and_o[i])
 
-         ,.dma_data_o(dma_data_o)
-         ,.dma_data_v_o(dma_data_v_o)
-         ,.dma_data_ready_and_i(dma_data_ready_and_i)
+         ,.dma_data_o(dma_data_o[i])
+         ,.dma_data_v_o(dma_data_v_o[i])
+         ,.dma_data_ready_and_i(dma_data_ready_and_i[i])
          );
     end
 

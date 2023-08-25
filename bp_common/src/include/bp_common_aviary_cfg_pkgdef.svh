@@ -315,7 +315,7 @@
                               | (1 << e_cfg_amo_swap)
                               | (1 << e_cfg_amo_fetch_logic)
                               | (1 << e_cfg_amo_fetch_arithmetic)
-      ,l2_banks            : 1
+      ,l2_banks            : 2
       ,l2_data_width       : 128
       ,l2_sets             : 128
       ,l2_assoc            : 8
