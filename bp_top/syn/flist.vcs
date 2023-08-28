@@ -327,3 +327,9 @@ $BP_COMMON_DIR/src/v/bsg_async_noc_link.sv
 $BP_COMMON_DIR/src/v/bsg_dff_sync_read.v
 $BP_COMMON_DIR/src/v/bsg_rom_param.v
 
+# DMA Engine additional files
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_addr_gen.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_csrs.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_core.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller.sv
+$BP_DMA_DIR/src/v/bp_dma_engine.sv
