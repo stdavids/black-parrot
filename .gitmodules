@@ -8,3 +8,6 @@
     url = https://github.com/bsg-external/HardFloat.git
     branch = master
     update = checkout
+[submodule "external/basejump_ml_atoms"]
+	path = external/basejump_ml_atoms
+	url = git@github.com:bespoke-silicon-group/basejump_ml_atoms
