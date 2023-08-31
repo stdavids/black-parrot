@@ -179,9 +179,9 @@ module bp_be_pipe_mem
   logic load_misaligned_v, store_misaligned_v;
 
   /* Control signals */
-  wire is_store  = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_w_v;
-  wire is_load   = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_r_v;
-  wire is_clean = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.fu_op inside {e_dcache_op_clean};
+  wire is_store  = (decode.pipe_mem_incr_v | decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_w_v;
+  wire is_load   = (decode.pipe_mem_incr_v | decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_r_v;
+  wire is_clean  = (decode.pipe_mem_incr_v | decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.fu_op inside {e_dcache_op_clean};
   wire is_fstore = decode.fu_op inside {e_dcache_op_fsd, e_dcache_op_fsw};
   wire is_req    = reservation.v & (is_store | is_load | is_clean);
 
@@ -370,7 +370,7 @@ module bp_be_pipe_mem
       end
     else
       begin
-        dcache_pkt_v           = reservation.v & (decode.pipe_mem_early_v | decode.pipe_mem_final_v);
+        dcache_pkt_v           = reservation.v & (decode.pipe_mem_incr_v | decode.pipe_mem_early_v | decode.pipe_mem_final_v);
         dcache_pkt.rd_addr     = instr.t.rtype.rd_addr;
         dcache_pkt.opcode      = bp_be_dcache_fu_op_e'(decode.fu_op);
         dcache_pkt.vaddr       = eaddr[0+:vaddr_width_p];
