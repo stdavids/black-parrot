@@ -55,10 +55,14 @@ module bp_be_pipe_mem
    , output logic                         store_access_fault_v_o
    , output logic                         store_page_fault_v_o
 
-   , output logic [dpath_width_gp-1:0]    early_data_o
-   , output logic                         early_v_o
-   , output logic [dpath_width_gp-1:0]    final_data_o
-   , output logic                         final_v_o
+   , output logic [dpath_width_gp-1:0]       incr_data_o
+   , output logic                            incr_v_o
+   , output logic [dpath_width_gp-1:0]       early_data_o
+   , output logic                            early_v_o
+   , output logic [dcache_block_width_p-1:0] wide_data_o
+   , output logic                            wide_v_o
+   , output logic [dpath_width_gp-1:0]       final_data_o
+   , output logic                            final_v_o
 
    , output logic [wb_pkt_width_lp-1:0]   late_iwb_pkt_o
    , output logic                         late_iwb_pkt_v_o
@@ -166,7 +170,7 @@ module bp_be_pipe_mem
   logic [dword_width_gp-1:0] dcache_data;
   logic [paddr_width_p-1:0] dcache_addr;
   logic [reg_addr_width_gp-1:0] dcache_rd_addr;
-  logic                     dcache_ret, dcache_store, dcache_late, dcache_clean, dcache_v;
+  logic                     dcache_ret, dcache_store, dcache_late, dcache_clean, dcache_block, dcache_v;
   logic                     dcache_float;
   logic                     dcache_req;
 
@@ -319,6 +323,7 @@ module bp_be_pipe_mem
       ,.rd_addr_o(dcache_rd_addr)
       ,.late_o(dcache_late)
       ,.clean_o(dcache_clean)
+      ,.block_o(dcache_block)
       ,.float_o(dcache_float)
       ,.ret_o(dcache_ret)
       ,.store_o(dcache_store)
@@ -495,6 +500,16 @@ module bp_be_pipe_mem
                           ,default: '0
                           };
 
+  wire incr_v_li = reservation.v & reservation.decode.pipe_mem_incr_v;
+  bsg_dff_chain
+   #(.width_p(1), .num_stages_p(0))
+   incr_chain
+    (.clk_i(posedge_clk)
+     ,.data_i(incr_v_li)
+     ,.data_o(incr_v_o)
+     );
+  assign incr_data_o = eaddr;
+
   wire early_v_li = reservation.v & reservation.decode.pipe_mem_early_v;
   bsg_dff_chain
    #(.width_p(1), .num_stages_p(1))
@@ -504,6 +519,9 @@ module bp_be_pipe_mem
      ,.data_i(early_v_li)
      ,.data_o(early_v_o)
      );
+
+  assign wide_data_o = data_mem_o;
+  assign wide_v_o = dcache_v & dcache_block;
 
   wire final_v_li = reservation.v & reservation.decode.pipe_mem_final_v;
   bsg_dff_chain
@@ -519,6 +537,7 @@ module bp_be_pipe_mem
   assign busy_o         = ~dcache_ready_and_lo | ~late_ready_lo;
   assign ptw_busy_o     = ptw_busy;
   assign early_data_o   = dcache_data;
+  assign early_addr_o   = dcache_addr;
   assign final_data_o   = dcache_float_data;
 
 endmodule

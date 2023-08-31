@@ -624,6 +624,19 @@ module bp_be_instr_decoder
               default: begin end
             endcase
           end
+        `RV64_CUSTOM0_OP:
+          begin
+            unique casez (instr)
+              `RV64_TENSOR_WTLD0, `RV64_TENSOR_WTLD1
+              ,`RV64_TENSOR_ACLD0, `RV64_TENSOR_ACLD1:
+                begin
+                  decode_cast_o.pipe_mem_incr_v = 1'b1;
+                  decode_cast_o.irf_w_v = 1'b1;
+                  decode_cast_o.dcache_r_v = 1'b1;
+                  decode_cast_o.fu_op = e_dcache_op_wide_ld;
+                end
+            endcase
+          end
         default : illegal_instr_o = 1'b1;
       endcase
 

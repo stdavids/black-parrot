@@ -273,8 +273,6 @@ module bp_be_detector
   always_comb
     begin
       dep_status_n.v          = dispatch_pkt_cast_i.v;
-      dep_status_n.eint_iwb_v = dispatch_pkt_cast_i.decode.pipe_int_v       & dispatch_pkt_cast_i.decode.irf_w_v  & ~ispec_v_o;
-      dep_status_n.eint_fwb_v = dispatch_pkt_cast_i.decode.pipe_int_v       & dispatch_pkt_cast_i.decode.frf_w_v;
       dep_status_n.fint_iwb_v = dispatch_pkt_cast_i.decode.pipe_int_v       & dispatch_pkt_cast_i.decode.irf_w_v  &  ispec_v_o;
       dep_status_n.fint_fwb_v = dispatch_pkt_cast_i.decode.pipe_int_v       & dispatch_pkt_cast_i.decode.frf_w_v;
       dep_status_n.aux_iwb_v  = dispatch_pkt_cast_i.decode.pipe_aux_v       & dispatch_pkt_cast_i.decode.irf_w_v;

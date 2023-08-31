@@ -93,6 +93,7 @@
     ,e_dcache_op_amominud = 6'b100000
     ,e_dcache_op_amomaxud = 6'b100001
 
+    ,e_dcache_op_wide_ld  = 6'b110000
     ,e_dcache_op_clean    = 6'b111110
   } bp_be_dcache_fu_op_e;
 
@@ -169,6 +170,7 @@
     logic                             compressed;
 
     logic                             pipe_int_v;
+    logic                             pipe_mem_incr_v;
     logic                             pipe_mem_early_v;
     logic                             pipe_aux_v;
     logic                             pipe_mem_final_v;

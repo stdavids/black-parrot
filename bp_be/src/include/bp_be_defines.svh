@@ -81,8 +81,6 @@
       logic                              v;                                                        \
       logic                              aux_iwb_v;                                                \
       logic                              aux_fwb_v;                                                \
-      logic                              eint_iwb_v;                                               \
-      logic                              eint_fwb_v;                                               \
       logic                              fint_iwb_v;                                               \
       logic                              fint_fwb_v;                                               \
       logic                              emem_iwb_v;                                               \
@@ -251,7 +249,7 @@
      )
 
   `define bp_be_dep_status_width \
-    (15 + rv64_reg_addr_width_gp)
+    (13 + rv64_reg_addr_width_gp)
 
   `define bp_be_branch_pkt_width(vaddr_width_mp) \
     (4 + vaddr_width_mp)

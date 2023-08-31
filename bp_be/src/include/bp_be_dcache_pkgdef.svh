@@ -25,6 +25,7 @@
     logic                         store_op;
     logic                         signed_op;
     logic                         float_op;
+    logic                         block_op;
     logic                         double_op;
     logic                         word_op;
     logic                         half_op;
