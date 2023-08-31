@@ -220,11 +220,12 @@ module bp_be_dcache
   logic [assoc_p-1:0] snoop_bank_sel_one_hot;
 
   // Fill signals
-  logic fill_restart_v, fill_snoop_v, fill_pending_r, fill_secondary_r, fill_uncached_r;
+  logic fill_snoop_v, fill_pending_r, fill_secondary_r, fill_uncached_r;
   bp_be_dcache_decode_s fill_decode_r;
   logic [sindex_width_lp-1:0] fill_index_r;
   logic [assoc_p-1:0] fill_hit_r;
   logic [assoc_p-1:0] fill_bank_mask_r;
+  logic [lg_assoc_lp-1:0] fill_hit_way;
 
   /////////////////////////////////////////////////////////////////////////////
   // Decode Stage
@@ -357,6 +358,7 @@ module bp_be_dcache
      ,.o(bank_sel_one_hot_tl)
      );
 
+  // TODO: one-hot subtract
   logic [lg_assoc_lp-1:0] load_hit_way_tl;
   logic load_hit_tl;
   bsg_encode_one_hot
@@ -394,7 +396,7 @@ module bp_be_dcache
    v_tv_reg
     (.clk_i(clk_i)
      ,.reset_i(reset_i)
-     ,.data_i(tv_we | fill_restart_v)
+     ,.data_i(tv_we | critical_recv)
      ,.data_o(v_tv_r)
      );
 
@@ -968,8 +970,7 @@ module bp_be_dcache
         & (data_mem_pkt_cast_i.opcode == e_cache_data_mem_read);
 
       assign data_mem_fast_read[i] = (safe_tl_we & decode_lo.load_op & ~decode_lo.block_op)
-        || (safe_tv_we & decode_tl_r.load_op & decode_tl_r.block_op)
-        || (fill_restart_v & fill_decode_r.load_op & fill_decode_r.block_op);
+        || (safe_tv_we & decode_tl_r.load_op & decode_tl_r.block_op);
       assign data_mem_fast_write[i] = wbuf_yumi_li & wbuf_bank_sel_one_hot[i];
 
       assign data_mem_v_li[i] = data_mem_fast_read[i]
@@ -990,7 +991,7 @@ module bp_be_dcache
         : data_mem_fast_read[i]
           ? (safe_tv_we & decode_tl_r.load_op & decode_tl_r.block_op)
             ? {vaddr_index_tl, {(assoc_p > 1){data_mem_block_offset}}}
-            : {vaddr_index, {(assoc_p > 1){vaddr_bank}}}
+              : {vaddr_index, {(assoc_p > 1){vaddr_bank}}}
           : {data_mem_pkt_cast_i.index, {(assoc_p > 1){data_mem_pkt_offset}}};
 
       assign data_mem_data_li[i] = data_mem_fast_write[i]
@@ -1232,6 +1233,15 @@ module bp_be_dcache
          ,.data_o({fill_bank_mask_r, fill_hit_r})
          );
 
+  // TODO: one-hot subtract
+  bsg_encode_one_hot
+   #(.width_p(assoc_p) ,.lo_to_hi_p(1))
+   fill_hit_index_encoder
+    (.i(fill_hit_r)
+     ,.addr_o(fill_hit_way)
+     ,.v_o()
+     );
+
       wire fill_uncached_n = uncached_op_tv_r;
       wire [$bits(bp_be_dcache_decode_s)-1:0] fill_decode_n = decode_tv_r;
       wire [sindex_width_lp-1:0] fill_index_n = paddr_tv_r[block_offset_width_lp+:sindex_width_lp];
@@ -1243,18 +1253,6 @@ module bp_be_dcache
          ,.data_i({fill_index_n, fill_uncached_n, fill_decode_n})
          ,.data_o({fill_index_r, fill_uncached_r, fill_decode_r})
          );
-
-      wire safe_restart_n = fill_decode_r.block_op & complete_recv;
-      bsg_dff
-       #(.width_p(1))
-       safe_restart_reg
-        (.clk_i(clk_i)
-         ,.data_i(safe_restart_n)
-         ,.data_o(safe_restart_r)
-         );
-
-      assign fill_restart_v = (critical_recv & ~fill_decode_r.block_op)
-        | safe_restart_r;
 
       assign fill_snoop_v = critical_recv;
       assign fill_hazard = v_tl_r
@@ -1292,8 +1290,6 @@ module bp_be_dcache
          ,.data_o(safe_restart_r)
          );
 
-      assign fill_restart_v = (critical_recv & ~fill_decode_r.block_op)
-        | safe_restart_r;
       assign fill_snoop_v = blocking_sent | fill_pending_r;
       assign fill_hazard = '0;
     end

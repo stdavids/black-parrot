@@ -499,8 +499,8 @@ module bp_be_calculator_top
       comp_stage_n[3].fflags_w_v &= exc_stage_n[3].v;
 
       // Inject D$ miss so we don't accidentally write back the data
-      comp_stage_n[3].ird_w_v    &= ~pipe_mem_dcache_load_miss_lo;
-      comp_stage_n[3].frd_w_v    &= ~pipe_mem_dcache_load_miss_lo;
+      comp_stage_n[2].ird_w_v    &= ~pipe_mem_dcache_load_miss_lo;
+      comp_stage_n[2].frd_w_v    &= ~pipe_mem_dcache_load_miss_lo;
     end
 
   bsg_dff
