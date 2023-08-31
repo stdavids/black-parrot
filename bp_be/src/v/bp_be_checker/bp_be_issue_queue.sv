@@ -213,6 +213,10 @@ module bp_be_issue_queue
             preissue_pkt_cast_o.frs2_v = preissue_v;
             preissue_pkt_cast_o.frs3_v = preissue_v;
           end
+        `RV64_CUSTOM0_OP:
+          begin
+            preissue_pkt_cast_o.irs1_v = preissue_v;
+          end
         default: begin end
       endcase
     end
@@ -257,7 +261,7 @@ module bp_be_issue_queue
   logic ecall_m_lo, ecall_s_lo, ecall_u_lo;
   logic ebreak_lo, dbreak_lo;
   logic dret_lo, mret_lo, sret_lo;
-  logic wfi_lo, sfence_vma_lo;
+  logic wfi_lo, sfence_vma_lo, fencei_lo;
   bp_be_instr_decoder
    #(.bp_params_p(bp_params_p))
    instr_decoder
@@ -278,6 +282,7 @@ module bp_be_issue_queue
      ,.sret_o(sret_lo)
      ,.wfi_o(wfi_lo)
      ,.sfence_vma_o(sfence_vma_lo)
+     ,.fencei_o(fencei_lo)
      );
 
   wire issue_pkt_v = ~empty & ~inject & ~suppress;
@@ -303,6 +308,7 @@ module bp_be_issue_queue
       issue_pkt_cast_o.sret                 = sret_lo;
       issue_pkt_cast_o.wfi                  = wfi_lo;
       issue_pkt_cast_o.sfence_vma           = sfence_vma_lo;
+      issue_pkt_cast_o.fencei               = fencei_lo;
 
       issue_pkt_cast_o.pc                   = issue_pc;
       issue_pkt_cast_o.instr                = issue_instr;

@@ -48,8 +48,6 @@ module bp_be_pipe_mem
    , output logic                         cache_load_miss_v_o
    , output logic                         cache_store_miss_v_o
    , output logic                         cache_replay_v_o
-   , output logic                         fencei_clean_v_o
-   , output logic                         fencei_dirty_v_o
    , output logic                         load_misaligned_v_o
    , output logic                         load_access_fault_v_o
    , output logic                         load_page_fault_v_o
@@ -57,10 +55,14 @@ module bp_be_pipe_mem
    , output logic                         store_access_fault_v_o
    , output logic                         store_page_fault_v_o
 
-   , output logic [dpath_width_gp-1:0]    early_data_o
-   , output logic                         early_v_o
-   , output logic [dpath_width_gp-1:0]    final_data_o
-   , output logic                         final_v_o
+   , output logic [dpath_width_gp-1:0]       incr_data_o
+   , output logic                            incr_v_o
+   , output logic [dpath_width_gp-1:0]       early_data_o
+   , output logic                            early_v_o
+   , output logic [dcache_block_width_p-1:0] wide_data_o
+   , output logic                            wide_v_o
+   , output logic [dpath_width_gp-1:0]       final_data_o
+   , output logic                            final_v_o
 
    , output logic [wb_pkt_width_lp-1:0]   late_iwb_pkt_o
    , output logic                         late_iwb_pkt_v_o
@@ -166,8 +168,9 @@ module bp_be_pipe_mem
   logic [dword_width_gp-1:0] dcache_st_data;
 
   logic [dword_width_gp-1:0] dcache_data;
+  logic [paddr_width_p-1:0] dcache_addr;
   logic [reg_addr_width_gp-1:0] dcache_rd_addr;
-  logic                     dcache_ret, dcache_store, dcache_late, dcache_fencei, dcache_v;
+  logic                     dcache_ret, dcache_store, dcache_late, dcache_clean, dcache_block, dcache_v;
   logic                     dcache_float;
   logic                     dcache_req;
 
@@ -178,9 +181,9 @@ module bp_be_pipe_mem
   /* Control signals */
   wire is_store  = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_w_v;
   wire is_load   = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.dcache_r_v;
-  wire is_fencei = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.fu_op inside {e_dcache_op_fencei};
+  wire is_clean = (decode.pipe_mem_early_v | decode.pipe_mem_final_v) & decode.fu_op inside {e_dcache_op_clean};
   wire is_fstore = decode.fu_op inside {e_dcache_op_fsd, e_dcache_op_fsw};
-  wire is_req    = reservation.v & (is_store | is_load | is_fencei);
+  wire is_req    = reservation.v & (is_store | is_load | is_clean);
 
   // Calculate cache access eaddr
   wire [rv64_eaddr_width_gp-1:0] eaddr = rs1 + imm;
@@ -316,9 +319,11 @@ module bp_be_pipe_mem
 
       ,.v_o(dcache_v)
       ,.data_o(dcache_data)
+      ,.addr_o(dcache_addr)
       ,.rd_addr_o(dcache_rd_addr)
       ,.late_o(dcache_late)
-      ,.fencei_o(dcache_fencei)
+      ,.clean_o(dcache_clean)
+      ,.block_o(dcache_block)
       ,.float_o(dcache_float)
       ,.ret_o(dcache_ret)
       ,.store_o(dcache_store)
@@ -432,13 +437,9 @@ module bp_be_pipe_mem
   assign store_misaligned_v_o   = dtlb_r_v_r & store_misaligned_v;
   assign load_misaligned_v_o    = dtlb_r_v_r & load_misaligned_v;
 
-  assign fencei_clean_v_o       = early_v_r & ~dcache_req &  dcache_v & dcache_fencei;
-  assign fencei_dirty_v_o       = early_v_r &  dcache_req & ~dcache_v & dcache_fencei;
-  assign cache_store_miss_v_o   = early_v_r &  dcache_req & ~dcache_v & dcache_store;
-  assign cache_load_miss_v_o    = early_v_r &  dcache_req & ~dcache_v & dcache_ret;
-
-  wire cache_fail = early_v_r & ~dcache_v & ~dcache_req;
-  assign cache_replay_v_o = cache_fail | fencei_dirty_v_o;
+  assign cache_store_miss_v_o = early_v_r &  dcache_req & ~dcache_v & dcache_store;
+  assign cache_load_miss_v_o  = early_v_r &  dcache_req & ~dcache_v & dcache_ret;
+  assign cache_replay_v_o     = early_v_r & ~dcache_v & ~dcache_req;
 
   // Save the data coming out the D$ so we can recode it for floating-point loads
   logic [dword_width_gp-1:0] dcache_data_r;
@@ -499,6 +500,16 @@ module bp_be_pipe_mem
                           ,default: '0
                           };
 
+  wire incr_v_li = reservation.v & reservation.decode.pipe_mem_incr_v;
+  bsg_dff_chain
+   #(.width_p(1), .num_stages_p(0))
+   incr_chain
+    (.clk_i(posedge_clk)
+     ,.data_i(incr_v_li)
+     ,.data_o(incr_v_o)
+     );
+  assign incr_data_o = eaddr;
+
   wire early_v_li = reservation.v & reservation.decode.pipe_mem_early_v;
   bsg_dff_chain
    #(.width_p(1), .num_stages_p(1))
@@ -508,6 +519,9 @@ module bp_be_pipe_mem
      ,.data_i(early_v_li)
      ,.data_o(early_v_o)
      );
+
+  assign wide_data_o = data_mem_o;
+  assign wide_v_o = dcache_v & dcache_block;
 
   wire final_v_li = reservation.v & reservation.decode.pipe_mem_final_v;
   bsg_dff_chain
@@ -523,6 +537,7 @@ module bp_be_pipe_mem
   assign busy_o         = ~dcache_ready_and_lo | ~late_ready_lo;
   assign ptw_busy_o     = ptw_busy;
   assign early_data_o   = dcache_data;
+  assign early_addr_o   = dcache_addr;
   assign final_data_o   = dcache_float_data;
 
 endmodule

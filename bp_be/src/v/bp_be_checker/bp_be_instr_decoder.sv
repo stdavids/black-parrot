@@ -41,6 +41,7 @@ module bp_be_instr_decoder
    , output logic                       sret_o
    , output logic                       wfi_o
    , output logic                       sfence_vma_o
+   , output logic                       fencei_o
 
    , output logic [dword_width_gp-1:0]  imm_o
    );
@@ -76,6 +77,7 @@ module bp_be_instr_decoder
       sret_o          = '0;
       wfi_o           = '0;
       sfence_vma_o    = '0;
+      fencei_o        = '0;
 
       imm_o           = '0;
 
@@ -264,8 +266,9 @@ module bp_be_instr_decoder
               `RV64_FENCE   : begin end
               `RV64_FENCE_I :
                 begin
-                  decode_cast_o.pipe_mem_early_v = 1'b1;
-                  decode_cast_o.fu_op            = e_dcache_op_fencei;
+                  decode_cast_o.pipe_mem_early_v = !dcache_features_p[e_cfg_coherent];
+                  decode_cast_o.fu_op            = e_dcache_op_clean;
+                  fencei_o                       = 1'b1;
                 end
               default : illegal_instr_o = 1'b1;
             endcase
@@ -619,6 +622,19 @@ module bp_be_instr_decoder
                 illegal_instr_o =
                   ~|{dcache_features_p[e_cfg_amo_fetch_arithmetic], l2_features_p[e_cfg_amo_fetch_arithmetic]};
               default: begin end
+            endcase
+          end
+        `RV64_CUSTOM0_OP:
+          begin
+            unique casez (instr)
+              `RV64_TENSOR_WTLD0, `RV64_TENSOR_WTLD1
+              ,`RV64_TENSOR_ACLD0, `RV64_TENSOR_ACLD1:
+                begin
+                  decode_cast_o.pipe_mem_incr_v = 1'b1;
+                  decode_cast_o.irf_w_v = 1'b1;
+                  decode_cast_o.dcache_r_v = 1'b1;
+                  decode_cast_o.fu_op = e_dcache_op_wide_ld;
+                end
             endcase
           end
         default : illegal_instr_o = 1'b1;

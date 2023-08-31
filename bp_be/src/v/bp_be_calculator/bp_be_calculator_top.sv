@@ -118,7 +118,6 @@ module bp_be_calculator_top
 
   logic pipe_mem_dtlb_load_miss_lo, pipe_mem_dtlb_store_miss_lo;
   logic pipe_mem_dcache_load_miss_lo, pipe_mem_dcache_store_miss_lo, pipe_mem_dcache_replay_lo;
-  logic pipe_mem_fencei_clean_lo, pipe_mem_fencei_dirty_lo;
   logic pipe_mem_load_misaligned_lo, pipe_mem_load_access_fault_lo, pipe_mem_load_page_fault_lo;
   logic pipe_mem_store_misaligned_lo, pipe_mem_store_access_fault_lo, pipe_mem_store_page_fault_lo;
 
@@ -326,7 +325,11 @@ module bp_be_calculator_top
      ,.v_o(pipe_aux_data_lo_v)
      );
 
-  // Memory pipe: 2/3 cycle latency
+  // Memory pipe: 1/2/3 cycle latency
+  logic [dpath_width_gp-1:0] pipe_mem_incr_data_lo;
+  logic pipe_mem_incr_data_lo_v;
+  logic [dcache_block_width_p-1:0] pipe_mem_wide_data_lo;
+  logic pipe_mem_wide_data_lo_v;
   bp_be_pipe_mem
    #(.bp_params_p(bp_params_p))
    pipe_mem
@@ -379,8 +382,6 @@ module bp_be_calculator_top
      ,.cache_replay_v_o(pipe_mem_dcache_replay_lo)
      ,.cache_load_miss_v_o(pipe_mem_dcache_load_miss_lo)
      ,.cache_store_miss_v_o(pipe_mem_dcache_store_miss_lo)
-     ,.fencei_clean_v_o(pipe_mem_fencei_clean_lo)
-     ,.fencei_dirty_v_o(pipe_mem_fencei_dirty_lo)
      ,.load_misaligned_v_o(pipe_mem_load_misaligned_lo)
      ,.load_access_fault_v_o(pipe_mem_load_access_fault_lo)
      ,.load_page_fault_v_o(pipe_mem_load_page_fault_lo)
@@ -388,11 +389,17 @@ module bp_be_calculator_top
      ,.store_access_fault_v_o(pipe_mem_store_access_fault_lo)
      ,.store_page_fault_v_o(pipe_mem_store_page_fault_lo)
 
+     ,.incr_data_o(pipe_mem_incr_data_lo)
+     ,.incr_v_o(pipe_mem_incr_data_lo_v)
+
      ,.early_data_o(pipe_mem_early_data_lo)
      ,.early_v_o(pipe_mem_early_data_lo_v)
 
      ,.final_data_o(pipe_mem_final_data_lo)
      ,.final_v_o(pipe_mem_final_data_lo_v)
+
+     ,.wide_data_o(pipe_mem_wide_data_lo)
+     ,.wide_v_o(pipe_mem_wide_data_lo_v)
 
      ,.late_iwb_pkt_o(pipe_mem_late_iwb_pkt)
      ,.late_iwb_pkt_v_o(pipe_mem_late_iwb_pkt_v)
@@ -465,6 +472,7 @@ module bp_be_calculator_top
       comp_stage_n[0].rd_data    |= injection                  ? dispatch_pkt_cast_i.rs2  : '0;
       comp_stage_n[1].rd_data    |= pipe_int_early_data_lo_v   ? pipe_int_early_data_lo   : '0;
       comp_stage_n[1].rd_data    |= pipe_sys_data_lo_v         ? pipe_sys_data_lo         : '0;
+      comp_stage_n[1].rd_data    |= pipe_mem_incr_data_lo_v    ? pipe_mem_incr_data_lo    : '0;
       comp_stage_n[2].rd_data    |= pipe_mem_early_data_lo_v   ? pipe_mem_early_data_lo   : '0;
       comp_stage_n[2].rd_data    |= pipe_aux_data_lo_v         ? pipe_aux_data_lo         : '0;
       comp_stage_n[2].rd_data    |= pipe_int_catchup_data_lo_v ? pipe_int_catchup_data_lo : '0;
@@ -511,45 +519,43 @@ module bp_be_calculator_top
           // Normally, shift down in the pipe
           exc_stage_n[i] = (i == 0) ? '0 : exc_stage_r[i-1];
         end
-          exc_stage_n[0].v                      |= reservation_n.v;
-          exc_stage_n[0].queue_v                |= reservation_n.queue_v;
-          exc_stage_n[0].ispec_v                |= reservation_n.ispec_v;
-          exc_stage_n[0].spec                   |= reservation_n.special;
-          exc_stage_n[0].exc                    |= reservation_n.exception;
+          exc_stage_n[0].v                        |= reservation_n.v;
+          exc_stage_n[0].queue_v                  |= reservation_n.queue_v;
+          exc_stage_n[0].ispec_v                  |= reservation_n.ispec_v;
+          exc_stage_n[0].spec                     |= reservation_n.special;
+          exc_stage_n[0].exc                      |= reservation_n.exception;
 
-          exc_stage_n[0].v                      &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[1].v                      &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[2].v                      &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[3].v                      &= commit_pkt_cast_o.instret;
+          exc_stage_n[0].v                        &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[1].v                        &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[2].v                        &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[3].v                        &= commit_pkt_cast_o.instret;
 
-          exc_stage_n[0].queue_v                &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[1].queue_v                &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[2].queue_v                &= ~commit_pkt_cast_o.npc_w_v;
-          exc_stage_n[3].queue_v                &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[0].queue_v                  &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[1].queue_v                  &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[2].queue_v                  &= ~commit_pkt_cast_o.npc_w_v;
+          exc_stage_n[3].queue_v                  &= ~commit_pkt_cast_o.npc_w_v;
 
-          exc_stage_n[1].exc.illegal_instr      |= pipe_sys_illegal_instr_lo;
-          exc_stage_n[1].spec.csrw              |= pipe_sys_csrw_lo;
+          exc_stage_n[1].exc.illegal_instr        |= pipe_sys_illegal_instr_lo;
+          exc_stage_n[1].spec.csrw                |= pipe_sys_csrw_lo;
 
-          exc_stage_n[1].exc.instr_misaligned   |= pipe_int_early_instr_misaligned_lo & ~exc_stage_r[0].ispec_v;
+          exc_stage_n[1].exc.instr_misaligned     |= pipe_int_early_instr_misaligned_lo & ~exc_stage_r[0].ispec_v;
 
-          exc_stage_n[1].exc.dtlb_store_miss    |= pipe_mem_dtlb_store_miss_lo;
-          exc_stage_n[1].exc.dtlb_load_miss     |= pipe_mem_dtlb_load_miss_lo;
-          exc_stage_n[1].exc.load_misaligned    |= pipe_mem_load_misaligned_lo;
-          exc_stage_n[1].exc.load_access_fault  |= pipe_mem_load_access_fault_lo;
-          exc_stage_n[1].exc.load_page_fault    |= pipe_mem_load_page_fault_lo;
-          exc_stage_n[1].exc.store_misaligned   |= pipe_mem_store_misaligned_lo;
-          exc_stage_n[1].exc.store_access_fault |= pipe_mem_store_access_fault_lo;
-          exc_stage_n[1].exc.store_page_fault   |= pipe_mem_store_page_fault_lo;
+          exc_stage_n[1].exc.dtlb_store_miss      |= pipe_mem_dtlb_store_miss_lo;
+          exc_stage_n[1].exc.dtlb_load_miss       |= pipe_mem_dtlb_load_miss_lo;
+          exc_stage_n[1].exc.load_misaligned      |= pipe_mem_load_misaligned_lo;
+          exc_stage_n[1].exc.load_access_fault    |= pipe_mem_load_access_fault_lo;
+          exc_stage_n[1].exc.load_page_fault      |= pipe_mem_load_page_fault_lo;
+          exc_stage_n[1].exc.store_misaligned     |= pipe_mem_store_misaligned_lo;
+          exc_stage_n[1].exc.store_access_fault   |= pipe_mem_store_access_fault_lo;
+          exc_stage_n[1].exc.store_page_fault     |= pipe_mem_store_page_fault_lo;
 
-          exc_stage_n[2].exc.instr_misaligned   |= pipe_int_catchup_instr_misaligned_lo;
-          exc_stage_n[2].exc.mispredict         |= pipe_int_catchup_mispredict_lo;
+          exc_stage_n[2].exc.instr_misaligned     |= pipe_int_catchup_instr_misaligned_lo;
+          exc_stage_n[2].exc.mispredict           |= pipe_int_catchup_mispredict_lo;
 
-          exc_stage_n[2].exc.fencei_dirty       |= pipe_mem_fencei_dirty_lo;
-          exc_stage_n[2].exc.dcache_replay      |= pipe_mem_dcache_replay_lo;
-          exc_stage_n[2].spec.dcache_load_miss  |= pipe_mem_dcache_load_miss_lo;
-          exc_stage_n[2].spec.dcache_store_miss |= pipe_mem_dcache_store_miss_lo;
-          exc_stage_n[2].spec.fencei_clean      |= pipe_mem_fencei_clean_lo;
-          exc_stage_n[2].exc.cmd_full           |= |{exc_stage_r[2].exc, exc_stage_r[2].spec} & cmd_full_n_i;
+          exc_stage_n[2].exc.dcache_replay        |= pipe_mem_dcache_replay_lo;
+          exc_stage_n[2].spec.dcache_load_miss    |= pipe_mem_dcache_load_miss_lo;
+          exc_stage_n[2].spec.dcache_store_miss   |= pipe_mem_dcache_store_miss_lo;
+          exc_stage_n[2].exc.cmd_full             |= |{exc_stage_r[2].exc, exc_stage_r[2].spec} & cmd_full_n_i;
     end
 
   // Exception pipeline

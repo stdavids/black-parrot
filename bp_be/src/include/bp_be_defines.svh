@@ -48,6 +48,7 @@
       logic                                    sret;                                               \
       logic                                    wfi;                                                \
       logic                                    sfence_vma;                                         \
+      logic                                    fencei;                                             \
                                                                                                    \
       logic [vaddr_width_mp-1:0]               pc;                                                 \
       rv64_instr_s                             instr;                                              \
@@ -80,8 +81,6 @@
       logic                              v;                                                        \
       logic                              aux_iwb_v;                                                \
       logic                              aux_fwb_v;                                                \
-      logic                              eint_iwb_v;                                               \
-      logic                              eint_fwb_v;                                               \
       logic                              fint_iwb_v;                                               \
       logic                              fint_fwb_v;                                               \
       logic                              emem_iwb_v;                                               \
@@ -149,7 +148,7 @@
       logic                           translation_en_n;                                            \
       logic                           exception;                                                   \
       logic                           _interrupt;                                                  \
-      logic                           unfreeze;                                                    \
+      logic                           resume;                                                      \
       logic                           eret;                                                        \
       logic                           fencei;                                                      \
       logic                           sfence;                                                      \
@@ -236,7 +235,7 @@
     (6+rv64_instr_width_gp)
 
   `define bp_be_issue_pkt_width(vaddr_width_mp, branch_metadata_fwd_width_mp) \
-    (7+vaddr_width_mp+instr_width_gp+$bits(bp_be_decode_s)+dpath_width_gp+branch_metadata_fwd_width_mp+11)
+    (7+vaddr_width_mp+instr_width_gp+$bits(bp_be_decode_s)+dpath_width_gp+branch_metadata_fwd_width_mp+12)
 
   `define bp_be_dispatch_pkt_width(vaddr_width_mp) \
     (4                                                                                             \
@@ -250,7 +249,7 @@
      )
 
   `define bp_be_dep_status_width \
-    (15 + rv64_reg_addr_width_gp)
+    (13 + rv64_reg_addr_width_gp)
 
   `define bp_be_branch_pkt_width(vaddr_width_mp) \
     (4 + vaddr_width_mp)
