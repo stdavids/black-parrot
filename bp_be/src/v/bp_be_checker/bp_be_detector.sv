@@ -257,6 +257,7 @@ module bp_be_detector
       // Combine all structural hazard information
       struct_haz_v = ptw_busy_i
                      | cmd_haz_v
+                     | (mem_busy_i & issue_pkt_cast_i.decode.pipe_mem_incr_v)
                      | (mem_busy_i & issue_pkt_cast_i.decode.pipe_mem_early_v)
                      | (mem_busy_i & issue_pkt_cast_i.decode.pipe_mem_final_v)
                      | (fdiv_busy_i & issue_pkt_cast_i.decode.pipe_long_v)

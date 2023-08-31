@@ -439,7 +439,7 @@ module bp_be_pipe_mem
 
   assign cache_store_miss_v_o = early_v_r &  dcache_req & ~dcache_v & dcache_store;
   assign cache_load_miss_v_o  = early_v_r &  dcache_req & ~dcache_v & dcache_ret;
-  assign cache_replay_v_o     = early_v_r & ~dcache_v & ~dcache_req;
+  assign cache_replay_v_o     = early_v_r & ~dcache_v & (~dcache_req | dcache_block);
 
   // Save the data coming out the D$ so we can recode it for floating-point loads
   logic [dword_width_gp-1:0] dcache_data_r;
@@ -521,7 +521,7 @@ module bp_be_pipe_mem
      );
 
   assign wide_data_o = data_mem_o;
-  assign wide_v_o = dcache_v & dcache_block;
+  assign wide_v_o = dcache_v & dcache_block & ~dcache_late;
 
   wire final_v_li = reservation.v & reservation.decode.pipe_mem_final_v;
   bsg_dff_chain
