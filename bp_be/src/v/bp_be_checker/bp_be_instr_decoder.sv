@@ -655,6 +655,8 @@ module bp_be_instr_decoder
           imm_o = `rv64_signext_i_imm(instr);
         `RV64_SYSTEM_OP:
           imm_o = `rv64_signext_c_imm(instr);
+        `RV64_CUSTOM0_OP:
+          imm_o = `rv64_signext_i_imm(instr);
         //`RV64_AMO_OP:
         default: imm_o = '0;
       endcase

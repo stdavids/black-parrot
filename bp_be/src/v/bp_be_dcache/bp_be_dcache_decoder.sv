@@ -99,7 +99,7 @@ module bp_be_dcache_decoder
     decode_cast_o.rd_addr = dcache_pkt.rd_addr;
 
     // Return
-    decode_cast_o.ret_op = decode_cast_o.load_op & (decode_cast_o.float_op | (decode_cast_o.rd_addr != '0));
+    decode_cast_o.ret_op = decode_cast_o.load_op & ~decode_cast_o.block_op & (decode_cast_o.float_op | (decode_cast_o.rd_addr != '0));
   end
 
 endmodule
