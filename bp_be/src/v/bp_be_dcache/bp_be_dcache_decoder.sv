@@ -76,6 +76,7 @@ module bp_be_dcache_decoder
        ,e_dcache_op_ld, e_dcache_op_lw, e_dcache_op_lh, e_dcache_op_lb
        ,e_dcache_op_lwu, e_dcache_op_lhu, e_dcache_op_lbu
        ,e_dcache_op_ptw
+       ,e_dcache_op_bload
        };
 
     decode_cast_o.store_op = (decode_cast_o.amo_op & ~decode_cast_o.lr_op) || pkt_cast_i.opcode inside
@@ -88,7 +89,7 @@ module bp_be_dcache_decoder
     unique case (pkt_cast_i.opcode)
       e_dcache_op_inval, e_dcache_op_clean, e_dcache_op_flush:
                                                        decode_cast_o.cache_op  = 1'b1;
-      e_dcache_op_bzero, e_dcache_op_binval, e_dcache_op_bclean, e_dcache_op_bflush:
+      e_dcache_op_bzero, e_dcache_op_bload, e_dcache_op_binval, e_dcache_op_bclean, e_dcache_op_bflush:
                                                        decode_cast_o.block_op  = 1'b1;
       e_dcache_op_lb, e_dcache_op_lbu, e_dcache_op_sb: decode_cast_o.byte_op   = 1'b1;
       e_dcache_op_lh, e_dcache_op_lhu, e_dcache_op_sh: decode_cast_o.half_op   = 1'b1;
@@ -109,7 +110,7 @@ module bp_be_dcache_decoder
     decode_cast_o.rd_addr = pkt_cast_i.rd_addr;
 
     // Return
-    decode_cast_o.ret_op = decode_cast_o.load_op & ~decode_cast_o.ptw_op & (decode_cast_o.float_op | (decode_cast_o.rd_addr != '0));
+    decode_cast_o.ret_op = decode_cast_o.load_op & ~decode_cast_o.block_op & ~decode_cast_o.ptw_op & (decode_cast_o.float_op | (decode_cast_o.rd_addr != '0));
   end
 
 endmodule

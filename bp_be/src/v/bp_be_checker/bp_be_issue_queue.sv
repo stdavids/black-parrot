@@ -224,6 +224,11 @@ module bp_be_issue_queue
             preissue_pkt_cast_o.frs2_v = preissue_v;
             preissue_pkt_cast_o.frs3_v = preissue_v;
           end
+        `RV64_CUSTOM0_OP:
+          begin
+            preissue_pkt_cast_o.irs1_v = preissue_v;
+            preissue_pkt_cast_o.irs2_v = preissue_pkt_cast_o.instr inside {`RV64_TENSOR_CSRST};
+          end
         default: begin end
       endcase
     end

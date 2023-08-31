@@ -121,6 +121,12 @@ module bp_be_calculator_top
   bp_be_trans_info_s   trans_info_lo;
   rv64_frm_e           frm_dyn_lo;
 
+  logic [paddr_width_p-1:0] pipe_mem_line_addr_lo;
+  logic [dpath_width_gp-1:0] pipe_mem_incr_data_lo;
+  logic pipe_mem_incr_data_v_lo;
+  logic [dcache_block_width_p-1:0] pipe_mem_line_data_lo;
+  logic pipe_mem_line_data_v_lo;
+
   bp_be_wb_pkt_s pipe_long_iwb_pkt, pipe_long_fwb_pkt;
 
   logic pipe_int_early_instr_misaligned_lo;
@@ -207,6 +213,11 @@ module bp_be_calculator_top
 
   // Computation pipelines
   // System pipe: 1 cycle latency
+  logic acc_v_lo;
+  rv64_instr_s acc_instr_lo;
+  logic [dword_width_gp-1:0] acc_data_lo;
+  logic acc_wide_v_lo;
+  logic [dcache_block_width_p-1:0] acc_wide_data_lo;
   bp_be_pipe_sys
    #(.bp_params_p(bp_params_p))
    pipe_sys
@@ -237,6 +248,16 @@ module bp_be_calculator_top
      ,.illegal_instr_o(pipe_sys_illegal_instr_lo)
      ,.data_o(pipe_sys_data_lo)
      ,.v_o(pipe_sys_data_v_lo)
+
+     ,.line_data_i(pipe_mem_line_data_lo)
+     ,.line_v_i(pipe_mem_line_data_v_lo)
+
+     ,.acc_v_o(acc_v_lo)
+     ,.acc_instr_o(acc_instr_lo)
+     ,.acc_data_o(acc_data_lo)
+
+     ,.acc_wide_v_o(acc_wide_v_lo)
+     ,.acc_wide_data_o(acc_wide_data_lo)
 
      ,.decode_info_o(decode_info_o)
      ,.trans_info_o(trans_info_lo)
@@ -335,7 +356,7 @@ module bp_be_calculator_top
      ,.v_o(pipe_aux_data_v_lo)
      );
 
-  // Memory pipe: 2/3 cycle latency
+  // Memory pipe: 1/2/3 cycle latency
   bp_be_pipe_mem
    #(.bp_params_p(bp_params_p))
    pipe_mem
@@ -395,11 +416,18 @@ module bp_be_calculator_top
      ,.store_access_fault_v_o(pipe_mem_store_access_fault_lo)
      ,.store_page_fault_v_o(pipe_mem_store_page_fault_lo)
 
-     ,.early_data_o(pipe_mem_early_data_lo)
-     ,.early_v_o(pipe_mem_early_data_v_lo)
+     ,.incr_data_o(pipe_mem_incr_data_lo)
+     ,.incr_v_o(pipe_mem_incr_data_v_lo)
 
-     ,.final_data_o(pipe_mem_final_data_lo)
+     ,.early_v_o(pipe_mem_early_data_v_lo)
+     ,.early_data_o(pipe_mem_early_data_lo)
+
      ,.final_v_o(pipe_mem_final_data_v_lo)
+     ,.final_data_o(pipe_mem_final_data_lo)
+
+     ,.line_v_o(pipe_mem_line_data_v_lo)
+     ,.line_data_o(pipe_mem_line_data_lo)
+     ,.line_addr_o(pipe_mem_line_addr_lo)
 
      ,.late_wb_pkt_o(pipe_mem_late_wb_pkt)
      ,.late_wb_v_o(pipe_mem_late_wb_v)
@@ -498,6 +526,7 @@ module bp_be_calculator_top
       // Injected instructions can carry a payload in rs2
       comp_stage_n[0].rd_data    |= injection                  ? dispatch_pkt_cast_i.rs2  : '0;
       comp_stage_n[1].rd_data    |= pipe_int_early_data_v_lo   ? pipe_int_early_data_lo   : '0;
+      comp_stage_n[1].rd_data    |= pipe_mem_incr_data_v_lo    ? pipe_mem_incr_data_lo    : '0;
       comp_stage_n[1].rd_data    |= pipe_sys_data_v_lo         ? pipe_sys_data_lo         : '0;
       comp_stage_n[2].rd_data    |= pipe_mem_early_data_v_lo   ? pipe_mem_early_data_lo   : '0;
       comp_stage_n[2].rd_data    |= pipe_aux_data_v_lo         ? pipe_aux_data_lo         : '0;

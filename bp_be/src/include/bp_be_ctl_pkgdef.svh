@@ -93,12 +93,14 @@
     ,e_dcache_op_amominud = 6'b100000
     ,e_dcache_op_amomaxud = 6'b100001
 
-    ,e_dcache_op_ptw      = 6'b111000
+    ,e_dcache_op_ptw      = 6'b111001
 
+    ,e_dcache_op_bload    = 6'b111000
     ,e_dcache_op_bzero    = 6'b110000
     ,e_dcache_op_bclean   = 6'b110001
     ,e_dcache_op_binval   = 6'b110010
     ,e_dcache_op_bflush   = 6'b110100
+
     ,e_dcache_op_clean    = 6'b111110
     ,e_dcache_op_inval    = 6'b111101
     ,e_dcache_op_flush    = 6'b111111
@@ -165,6 +167,7 @@
     logic                             compressed;
 
     logic                             pipe_int_v;
+    logic                             pipe_mem_incr_v;
     logic                             pipe_mem_early_v;
     logic                             pipe_aux_v;
     logic                             pipe_mem_final_v;

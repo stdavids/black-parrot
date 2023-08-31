@@ -49,6 +49,20 @@ module bp_be_pipe_sys
    , input [wb_pkt_width_lp-1:0]             fwb_pkt_i
    , output logic [commit_pkt_width_lp-1:0]  commit_pkt_o
 
+   ////////////////////////////////////
+   // Accelerator Packet
+   // TODO: Clean up
+   , input [dcache_block_width_p-1:0]        line_data_i
+   , input                                   line_v_i
+
+   , output logic                            acc_v_o
+   , output logic [instr_width_gp-1:0]       acc_instr_o
+   , output logic [dword_width_gp-1:0]       acc_data_o
+
+   , output logic                            acc_wide_v_o
+   , output logic [dcache_block_width_p-1:0] acc_wide_data_o
+   ////////////////////////////////////
+
    , input                                   debug_irq_i
    , input                                   timer_irq_i
    , input                                   software_irq_i
@@ -126,7 +140,7 @@ module bp_be_pipe_sys
 
   logic [vaddr_width_p-1:0] retire_npc_r, retire_pc_r;
   logic [dword_width_gp-1:0] retire_nvaddr_r, retire_vaddr_r;
-  logic [dword_width_gp-1:0] retire_ndata_r, retire_data_r;
+  logic [dword_width_gp-1:0] retire_ndata_r;
   rv64_instr_s retire_ninstr_r, retire_instr_r;
   logic retire_npartial_r, retire_partial_r;
   logic retire_ncompressed_r, retire_compressed_r;
@@ -140,9 +154,6 @@ module bp_be_pipe_sys
 
       retire_nvaddr_r <= rs1+imm;
       retire_vaddr_r  <= retire_nvaddr_r;
-
-      retire_ndata_r <= rs2;
-      retire_data_r  <= retire_ndata_r;
 
       retire_ninstr_r <= reservation.instr;
       retire_instr_r  <= retire_ninstr_r;
@@ -202,5 +213,14 @@ module bp_be_pipe_sys
   assign v_o = csr_v_li;
   assign data_o = csr_data_lo;
 
+  always_ff @(posedge clk_i) begin
+    acc_v_o     <= instret_li & retire_instr_r.t.fmatype.opcode inside {`RV64_CUSTOM0_OP};
+    acc_instr_o <= retire_instr_r;
+    acc_data_o  <= retire_vaddr_r;
+  end
+
+  assign acc_wide_v_o = line_v_i;
+  assign acc_wide_data_o = line_data_i;
+    
 endmodule
 
