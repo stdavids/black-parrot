@@ -178,6 +178,7 @@
     logic                             pipe_mul_v;
     logic                             pipe_fma_v;
     logic                             pipe_long_v;
+    logic                             pipe_accel_v;
 
     logic                             irs1_r_v;
     logic                             irs2_r_v;
@@ -237,6 +238,7 @@
     logic _interrupt;
     logic cmd_full;
     logic mispredict;
+    logic accel_panic;
   }  bp_be_exception_s;
 
   typedef struct packed
@@ -271,4 +273,3 @@
   }  bp_be_csr_cmd_s;
 
 `endif
-

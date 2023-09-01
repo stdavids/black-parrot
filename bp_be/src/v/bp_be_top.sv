@@ -15,6 +15,7 @@ module bp_be_top
    `declare_bp_proc_params(bp_params_p)
    `declare_bp_core_if_widths(vaddr_width_p, paddr_width_p, asid_width_p, branch_metadata_fwd_width_p)
    `declare_bp_cache_engine_if_widths(paddr_width_p, dcache_ctag_width_p, dcache_sets_p, dcache_assoc_p, dword_width_gp, dcache_block_width_p, dcache_fill_width_p, dcache)
+   `declare_bp_bedrock_mem_if_widths(paddr_width_p, did_width_p, lce_id_width_p, lce_assoc_p)
 
    // Default parameters
    , localparam cfg_bus_width_lp = `bp_cfg_bus_width(vaddr_width_p, hio_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p)
@@ -73,6 +74,18 @@ module bp_be_top
    , input                                           software_irq_i
    , input                                           m_external_irq_i
    , input                                           s_external_irq_i
+
+   , input [lce_id_width_p-1:0]                      lce_id_i
+
+   , output logic [mem_fwd_header_width_lp-1:0]      mem_fwd_header_o
+   , output logic [bedrock_fill_width_p-1:0]         mem_fwd_data_o
+   , output logic                                    mem_fwd_v_o
+   , input                                           mem_fwd_ready_and_i
+
+   , input [mem_rev_header_width_lp-1:0]             mem_rev_header_i
+   , input [bedrock_fill_width_p-1:0]                mem_rev_data_i
+   , input                                           mem_rev_v_i
+   , output logic                                    mem_rev_ready_and_o
    );
 
   // Declare parameterized structures
@@ -96,7 +109,7 @@ module bp_be_top
   logic npc_mismatch_lo, poison_isd_lo, clear_iss_lo, suppress_iss_lo, resume_lo;
 
   logic cmd_full_n_lo, cmd_full_r_lo, cmd_empty_n_lo, cmd_empty_r_lo;
-  logic mem_ordered_lo, mem_busy_lo, idiv_busy_lo, fdiv_busy_lo, ptw_busy_lo;
+  logic mem_ordered_lo, mem_busy_lo, idiv_busy_lo, fdiv_busy_lo, ptw_busy_lo, accel_busy_lo;
 
   bp_be_director
    #(.bp_params_p(bp_params_p))
@@ -143,6 +156,7 @@ module bp_be_top
      ,.fdiv_busy_i(fdiv_busy_lo)
      ,.idiv_busy_i(idiv_busy_lo)
      ,.ptw_busy_i(ptw_busy_lo)
+     ,.accel_busy_i(accel_busy_lo)
      ,.irq_pending_i(irq_pending_lo)
 
      ,.ispec_v_o(ispec_v)
@@ -198,6 +212,7 @@ module bp_be_top
      ,.idiv_busy_o(idiv_busy_lo)
      ,.fdiv_busy_o(fdiv_busy_lo)
      ,.ptw_busy_o(ptw_busy_lo)
+     ,.accel_busy_o(accel_busy_lo)
 
      ,.br_pkt_o(br_pkt)
      ,.commit_pkt_o(commit_pkt)
@@ -241,7 +256,18 @@ module bp_be_top
      ,.irq_pending_o(irq_pending_lo)
      ,.irq_waiting_o(irq_waiting_lo)
      ,.cmd_full_n_i(cmd_full_n_lo)
+
+     ,.lce_id_i(lce_id_i)
+
+     ,.mem_fwd_header_o(mem_fwd_header_o)
+     ,.mem_fwd_data_o(mem_fwd_data_o)
+     ,.mem_fwd_v_o(mem_fwd_v_o)
+     ,.mem_fwd_ready_and_i(mem_fwd_ready_and_i)
+
+     ,.mem_rev_header_i(mem_rev_header_i)
+     ,.mem_rev_data_i(mem_rev_data_i)
+     ,.mem_rev_v_i(mem_rev_v_i)
+     ,.mem_rev_ready_and_o(mem_rev_ready_and_o)
      );
 
 endmodule
-

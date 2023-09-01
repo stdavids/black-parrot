@@ -39,6 +39,7 @@ module bp_be_detector
    , input                             mem_busy_i
    , input                             mem_ordered_i
    , input                             ptw_busy_i
+   , input                             accel_busy_i
    , input                             irq_pending_i
 
    // Pipeline control signals from the checker to the calculator
@@ -261,7 +262,8 @@ module bp_be_detector
                      | (mem_busy_i & issue_pkt_cast_i.decode.pipe_mem_early_v)
                      | (mem_busy_i & issue_pkt_cast_i.decode.pipe_mem_final_v)
                      | (fdiv_busy_i & issue_pkt_cast_i.decode.pipe_long_v)
-                     | (idiv_busy_i & issue_pkt_cast_i.decode.pipe_long_v);
+                     | (idiv_busy_i & issue_pkt_cast_i.decode.pipe_long_v)
+                     | (accel_busy_i & issue_pkt_cast_i.decode.pipe_accel_v);
     end
 
   // Dispatch if we have a valid issue. Don't stall on data hazards for exceptions
@@ -297,4 +299,3 @@ module bp_be_detector
     end
 
 endmodule
-

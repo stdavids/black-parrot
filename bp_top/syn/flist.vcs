@@ -213,6 +213,7 @@ $BP_BE_DIR/src/v/bp_be_calculator/bp_be_pipe_fma.sv
 $BP_BE_DIR/src/v/bp_be_calculator/bp_be_pipe_long.sv
 $BP_BE_DIR/src/v/bp_be_calculator/bp_be_pipe_mem.sv
 $BP_BE_DIR/src/v/bp_be_calculator/bp_be_pipe_sys.sv
+$BP_BE_DIR/src/v/bp_be_calculator/bp_be_pipe_accel.sv
 $BP_BE_DIR/src/v/bp_be_calculator/bp_be_ptw.sv
 $BP_BE_DIR/src/v/bp_be_calculator/bp_be_reg_to_fp.sv
 # Checker
@@ -332,4 +333,6 @@ $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_addr_gen.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_csrs.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_core.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_xor.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_fifo_wavefront_out.sv
 $BP_DMA_DIR/src/v/bp_dma_engine.sv

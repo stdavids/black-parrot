@@ -22,6 +22,7 @@ module bp_be_calculator_top
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_core_if_widths(vaddr_width_p, paddr_width_p, asid_width_p, branch_metadata_fwd_width_p)
     `declare_bp_cache_engine_if_widths(paddr_width_p, dcache_ctag_width_p, dcache_sets_p, dcache_assoc_p, dword_width_gp, dcache_block_width_p, dcache_fill_width_p, dcache)
+    `declare_bp_bedrock_mem_if_widths(paddr_width_p, did_width_p, lce_id_width_p, lce_assoc_p)
 
    // Generated parameters
    , localparam cfg_bus_width_lp        = `bp_cfg_bus_width(vaddr_width_p, hio_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p)
@@ -45,6 +46,7 @@ module bp_be_calculator_top
    , output logic                                    mem_busy_o
    , output logic                                    mem_ordered_o
    , output logic                                    ptw_busy_o
+   , output logic                                    accel_busy_o
    , output logic [decode_info_width_lp-1:0]         decode_info_o
    , input                                           cmd_full_n_i
 
@@ -89,6 +91,18 @@ module bp_be_calculator_top
    , input [dcache_stat_mem_pkt_width_lp-1:0]        stat_mem_pkt_i
    , output logic                                    stat_mem_pkt_yumi_o
    , output logic [dcache_stat_info_width_lp-1:0]    stat_mem_o
+
+   , input [lce_id_width_p-1:0]                      lce_id_i
+
+   , output logic [mem_fwd_header_width_lp-1:0]      mem_fwd_header_o
+   , output logic [bedrock_fill_width_p-1:0]         mem_fwd_data_o
+   , output logic                                    mem_fwd_v_o
+   , input                                           mem_fwd_ready_and_i
+
+   , input [mem_rev_header_width_lp-1:0]             mem_rev_header_i
+   , input [bedrock_fill_width_p-1:0]                mem_rev_data_i
+   , input                                           mem_rev_v_i
+   , output logic                                    mem_rev_ready_and_o
    );
 
   // Declare parameterizable structs
@@ -123,10 +137,12 @@ module bp_be_calculator_top
 
   logic pipe_sys_illegal_instr_lo, pipe_sys_csrw_lo;
 
-  logic pipe_int_early_data_lo_v, pipe_int_catchup_data_lo_v, pipe_aux_data_lo_v, pipe_mem_early_data_lo_v, pipe_mem_final_data_lo_v, pipe_sys_data_lo_v, pipe_mul_data_lo_v, pipe_fma_data_lo_v;
+  logic pipe_int_early_data_lo_v, pipe_int_catchup_data_lo_v, pipe_aux_data_lo_v, pipe_mem_early_data_lo_v, pipe_mem_final_data_lo_v, pipe_sys_data_lo_v, pipe_mul_data_lo_v, pipe_fma_data_lo_v, pipe_accel_data_lo_v;
   logic pipe_long_idata_lo_v, pipe_long_idata_lo_yumi, pipe_long_fdata_lo_v, pipe_long_fdata_lo_yumi;
-  logic [dpath_width_gp-1:0] pipe_int_early_data_lo, pipe_int_catchup_data_lo, pipe_aux_data_lo, pipe_mem_early_data_lo, pipe_mem_final_data_lo, pipe_sys_data_lo, pipe_mul_data_lo, pipe_fma_data_lo;
+  logic [dpath_width_gp-1:0] pipe_int_early_data_lo, pipe_int_catchup_data_lo, pipe_aux_data_lo, pipe_mem_early_data_lo, pipe_mem_final_data_lo, pipe_sys_data_lo, pipe_mul_data_lo, pipe_fma_data_lo, pipe_accel_data_lo;
   rv64_fflags_s pipe_aux_fflags_lo, pipe_fma_fflags_lo;
+
+  logic pipe_accel_panic_lo;
 
   logic [vaddr_width_p-1:0] pipe_int_early_npc_lo;
   logic pipe_int_early_branch_lo, pipe_int_early_btaken_lo;
@@ -451,6 +467,47 @@ module bp_be_calculator_top
      ,.fwb_yumi_i(pipe_long_fdata_lo_yumi)
      );
 
+  bp_be_pipe_accel
+   #(.bp_params_p(bp_params_p))
+   pipe_accel
+    (.clk_i(clk_i)
+     ,.reset_i(reset_i)
+
+     ,.reservation_i(reservation_r)
+     ,.busy_o(accel_busy_o)
+     ,.panic_o(pipe_accel_panic_lo)
+
+     ,.csr_data_o(pipe_accel_data_lo)
+     ,.csr_v_o(pipe_accel_data_lo_v)
+
+     ,.commit_instr_i(commit_pkt_cast_o.instr)
+     ,.commit_instr_v_i(exc_stage_r[2].v)
+
+     ,.cache_incr_data_i(pipe_mem_incr_data_lo)
+     ,.cache_incr_v_i(pipe_mem_incr_data_lo_v)
+
+     ,.cache_early_data_i(pipe_mem_early_data_lo)
+     ,.cache_early_v_i(pipe_mem_early_data_lo_v)
+
+     ,.cache_final_data_i(pipe_mem_final_data_lo)
+     ,.cache_final_v_i(pipe_mem_final_data_lo_v)
+
+     ,.cache_wide_data_i(pipe_mem_wide_data_lo)
+     ,.cache_wide_v_i(pipe_mem_wide_data_lo_v)
+
+     ,.lce_id_i(lce_id_i)
+
+     ,.mem_fwd_header_o(mem_fwd_header_o)
+     ,.mem_fwd_data_o(mem_fwd_data_o)
+     ,.mem_fwd_v_o(mem_fwd_v_o)
+     ,.mem_fwd_ready_and_i(mem_fwd_ready_and_i)
+
+     ,.mem_rev_header_i(mem_rev_header_i)
+     ,.mem_rev_data_i(mem_rev_data_i)
+     ,.mem_rev_v_i(mem_rev_v_i)
+     ,.mem_rev_ready_and_o(mem_rev_ready_and_o)
+     );
+
   // If a pipeline has completed an instruction (pipe_xxx_v), then mux in the calculated result.
   // Else, mux in the previous stage of the completion pipe. Since we are single issue and have
   //   static latencies, we cannot have two pipelines complete at the same time.
@@ -473,6 +530,7 @@ module bp_be_calculator_top
       comp_stage_n[1].rd_data    |= pipe_int_early_data_lo_v   ? pipe_int_early_data_lo   : '0;
       comp_stage_n[1].rd_data    |= pipe_sys_data_lo_v         ? pipe_sys_data_lo         : '0;
       comp_stage_n[1].rd_data    |= pipe_mem_incr_data_lo_v    ? pipe_mem_incr_data_lo    : '0;
+      comp_stage_n[1].rd_data    |= pipe_accel_data_lo_v       ? pipe_accel_data_lo       : '0;
       comp_stage_n[2].rd_data    |= pipe_mem_early_data_lo_v   ? pipe_mem_early_data_lo   : '0;
       comp_stage_n[2].rd_data    |= pipe_aux_data_lo_v         ? pipe_aux_data_lo         : '0;
       comp_stage_n[2].rd_data    |= pipe_int_catchup_data_lo_v ? pipe_int_catchup_data_lo : '0;
@@ -556,6 +614,7 @@ module bp_be_calculator_top
           exc_stage_n[2].spec.dcache_load_miss    |= pipe_mem_dcache_load_miss_lo;
           exc_stage_n[2].spec.dcache_store_miss   |= pipe_mem_dcache_store_miss_lo;
           exc_stage_n[2].exc.cmd_full             |= |{exc_stage_r[2].exc, exc_stage_r[2].spec} & cmd_full_n_i;
+          exc_stage_n[2].exc.accel_panic          |= pipe_accel_panic_lo;
     end
 
   // Exception pipeline
@@ -577,4 +636,3 @@ module bp_be_calculator_top
   assign fwb_pkt_o = pipe_mem_late_fwb_pkt_yumi ? pipe_mem_late_fwb_pkt : pipe_long_fdata_lo_yumi ? long_fwb_pkt : comp_stage_r[4];
 
 endmodule
-

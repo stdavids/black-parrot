@@ -634,7 +634,14 @@ module bp_be_instr_decoder
                   decode_cast_o.irf_w_v = 1'b1;
                   decode_cast_o.dcache_r_v = 1'b1;
                   decode_cast_o.fu_op = e_dcache_op_wide_ld;
+                  decode_cast_o.pipe_accel_v = 1'b1;
                 end
+              `RV64_TENSOR_CSRLD, `RV64_TENSOR_CSRST:
+                begin
+                  decode_cast_o.irf_w_v = (instr.rd_addr != '0);
+                  decode_cast_o.pipe_accel_v = 1'b1;
+                end
+              default: illegal_instr_o = 1'b1;
             endcase
           end
         default : illegal_instr_o = 1'b1;
@@ -663,4 +670,3 @@ module bp_be_instr_decoder
     end
 
 endmodule
-

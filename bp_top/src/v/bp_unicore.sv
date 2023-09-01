@@ -91,11 +91,12 @@ module bp_unicore
 
   localparam icache_proc_id_lp =                     0;
   localparam dcache_proc_id_lp = icache_proc_id_lp + 1;
-  localparam io_proc_id_lp     = dcache_proc_id_lp + 1;
-  localparam dma_rd_proc_id_lp = io_proc_id_lp     + 1;
+  localparam accel_proc_id_lp  = dcache_proc_id_lp + 1;
+  localparam dma_rd_proc_id_lp = accel_proc_id_lp  + 1;
   localparam dma_wr_proc_id_lp = dma_rd_proc_id_lp + 1;
+  localparam io_proc_id_lp     = dma_wr_proc_id_lp + 1;
 
-  localparam num_proc_lp       = dma_wr_proc_id_lp + 1;
+  localparam num_proc_lp       = io_proc_id_lp + 1;
   localparam lg_num_proc_lp    = `BSG_SAFE_CLOG2(num_proc_lp);
 
   localparam cfg_dev_id_lp      =                      0;
@@ -108,7 +109,7 @@ module bp_unicore
   localparam num_dev_lp         = loopback_dev_id_lp + 1;
   localparam lg_num_dev_lp      = `BSG_SAFE_CLOG2(num_dev_lp);
 
-  // {DMA-WR, DMA-RD, IO, BE UCE, FE UCE}
+  // {IO, DMA-WR, DMA-RD, ACC FU, BE UCE, FE UCE}
   bp_bedrock_mem_fwd_header_s [num_proc_lp-1:0] proc_fwd_header_lo;
   logic [num_proc_lp-1:0][bedrock_fill_width_p-1:0] proc_fwd_data_lo;
   logic [num_proc_lp-1:0] proc_fwd_v_lo, proc_fwd_ready_and_li;
@@ -133,15 +134,15 @@ module bp_unicore
      ,.reset_i(reset_r)
      ,.cfg_bus_i(cfg_bus_lo)
 
-     ,.mem_fwd_header_o({proc_fwd_header_lo[dcache_proc_id_lp], proc_fwd_header_lo[icache_proc_id_lp]})
-     ,.mem_fwd_data_o({proc_fwd_data_lo[dcache_proc_id_lp], proc_fwd_data_lo[icache_proc_id_lp]})
-     ,.mem_fwd_v_o({proc_fwd_v_lo[dcache_proc_id_lp], proc_fwd_v_lo[icache_proc_id_lp]})
-     ,.mem_fwd_ready_and_i({proc_fwd_ready_and_li[dcache_proc_id_lp], proc_fwd_ready_and_li[icache_proc_id_lp]})
+     ,.mem_fwd_header_o({proc_fwd_header_lo[accel_proc_id_lp], proc_fwd_header_lo[dcache_proc_id_lp], proc_fwd_header_lo[icache_proc_id_lp]})
+     ,.mem_fwd_data_o({proc_fwd_data_lo[accel_proc_id_lp], proc_fwd_data_lo[dcache_proc_id_lp], proc_fwd_data_lo[icache_proc_id_lp]})
+     ,.mem_fwd_v_o({proc_fwd_v_lo[accel_proc_id_lp], proc_fwd_v_lo[dcache_proc_id_lp], proc_fwd_v_lo[icache_proc_id_lp]})
+     ,.mem_fwd_ready_and_i({proc_fwd_ready_and_li[accel_proc_id_lp], proc_fwd_ready_and_li[dcache_proc_id_lp], proc_fwd_ready_and_li[icache_proc_id_lp]})
 
-     ,.mem_rev_header_i({proc_rev_header_li[dcache_proc_id_lp], proc_rev_header_li[icache_proc_id_lp]})
-     ,.mem_rev_data_i({proc_rev_data_li[dcache_proc_id_lp], proc_rev_data_li[icache_proc_id_lp]})
-     ,.mem_rev_v_i({proc_rev_v_li[dcache_proc_id_lp], proc_rev_v_li[icache_proc_id_lp]})
-     ,.mem_rev_ready_and_o({proc_rev_ready_and_lo[dcache_proc_id_lp], proc_rev_ready_and_lo[icache_proc_id_lp]})
+     ,.mem_rev_header_i({proc_rev_header_li[accel_proc_id_lp], proc_rev_header_li[dcache_proc_id_lp], proc_rev_header_li[icache_proc_id_lp]})
+     ,.mem_rev_data_i({proc_rev_data_li[accel_proc_id_lp], proc_rev_data_li[dcache_proc_id_lp], proc_rev_data_li[icache_proc_id_lp]})
+     ,.mem_rev_v_i({proc_rev_v_li[accel_proc_id_lp], proc_rev_v_li[dcache_proc_id_lp], proc_rev_v_li[icache_proc_id_lp]})
+     ,.mem_rev_ready_and_o({proc_rev_ready_and_lo[accel_proc_id_lp], proc_rev_ready_and_lo[dcache_proc_id_lp], proc_rev_ready_and_lo[icache_proc_id_lp]})
 
      ,.debug_irq_i(debug_irq_li)
      ,.timer_irq_i(timer_irq_li)
