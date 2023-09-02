@@ -481,7 +481,7 @@ module bp_be_calculator_top
      ,.csr_v_o(pipe_accel_data_lo_v)
 
      ,.commit_instr_i(commit_pkt_cast_o.instr)
-     ,.commit_instr_v_i(exc_stage_r[2].v)
+     ,.commit_instr_v_i(commit_pkt_cast_o.instret)
 
      ,.cache_incr_data_i(pipe_mem_incr_data_lo)
      ,.cache_incr_v_i(pipe_mem_incr_data_lo_v)
