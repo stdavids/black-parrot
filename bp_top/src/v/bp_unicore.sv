@@ -91,12 +91,12 @@ module bp_unicore
 
   localparam icache_proc_id_lp =                     0;
   localparam dcache_proc_id_lp = icache_proc_id_lp + 1;
-  localparam accel_proc_id_lp  = dcache_proc_id_lp + 1;
+  localparam io_proc_id_lp     = dcache_proc_id_lp + 1;
+  localparam accel_proc_id_lp  = io_proc_id_lp     + 1;
   localparam dma_rd_proc_id_lp = accel_proc_id_lp  + 1;
   localparam dma_wr_proc_id_lp = dma_rd_proc_id_lp + 1;
-  localparam io_proc_id_lp     = dma_wr_proc_id_lp + 1;
 
-  localparam num_proc_lp       = io_proc_id_lp + 1;
+  localparam num_proc_lp       = dma_wr_proc_id_lp + 1;
   localparam lg_num_proc_lp    = `BSG_SAFE_CLOG2(num_proc_lp);
 
   localparam cfg_dev_id_lp      =                      0;
@@ -109,7 +109,7 @@ module bp_unicore
   localparam num_dev_lp         = loopback_dev_id_lp + 1;
   localparam lg_num_dev_lp      = `BSG_SAFE_CLOG2(num_dev_lp);
 
-  // {IO, DMA-WR, DMA-RD, ACC FU, BE UCE, FE UCE}
+  // {DMA-WR, DMA-RD, ACC FU, IO, BE UCE, FE UCE}
   bp_bedrock_mem_fwd_header_s [num_proc_lp-1:0] proc_fwd_header_lo;
   logic [num_proc_lp-1:0][bedrock_fill_width_p-1:0] proc_fwd_data_lo;
   logic [num_proc_lp-1:0] proc_fwd_v_lo, proc_fwd_ready_and_li;

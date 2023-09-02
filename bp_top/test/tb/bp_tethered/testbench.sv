@@ -219,7 +219,7 @@ module testbench
      ,.dram_reset_i(dram_reset_i)
      );
 
-  wire [lce_id_width_p-1:0] io_lce_id_li = num_core_p*3+num_cacc_p+num_l2e_p+num_sacc_p+num_io_p+2;
+  wire [lce_id_width_p-1:0] io_lce_id_li = num_core_p*2+num_cacc_p+num_l2e_p+num_sacc_p+num_io_p;
   bp_nonsynth_nbf_loader
    #(.bp_params_p(bp_params_p))
    nbf_loader
