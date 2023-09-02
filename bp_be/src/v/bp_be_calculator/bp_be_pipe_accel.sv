@@ -101,6 +101,10 @@ module bp_be_pipe_accel
                 end
             endcase
         end
+        if (fsm_fwd_v_li & fsm_fwd_ready_and_lo) begin
+            csr_n[csr_dest_lp] = csr_r[csr_dest_lp] + 16;
+            csr_en[csr_dest_lp] = 1'b1;
+        end
     end
 
     for (genvar i = 0; i < num_csrs_lp; i++) begin
