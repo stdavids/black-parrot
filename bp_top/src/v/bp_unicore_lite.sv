@@ -84,7 +84,7 @@ module bp_unicore_lite
   wire negedge_clk = ~clk_i;
 
   // TODO set lce_id_li[2] via cfg_bus like the other two
-  wire [2:0][lce_id_width_p-1:0] lce_id_li = {lce_id_width_p'(2), cfg_bus_cast_i.dcache_id, cfg_bus_cast_i.icache_id};
+  wire [2:0][lce_id_width_p-1:0] lce_id_li = {lce_id_width_p'(3), cfg_bus_cast_i.dcache_id, cfg_bus_cast_i.icache_id};
   bp_core_minimal
    #(.bp_params_p(bp_params_p))
    core_minimal
