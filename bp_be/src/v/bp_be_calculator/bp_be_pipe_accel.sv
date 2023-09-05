@@ -102,7 +102,7 @@ module bp_be_pipe_accel
             endcase
         end
         if (fsm_fwd_v_li & fsm_fwd_ready_and_lo) begin
-            csr_n[csr_dest_lp] = csr_r[csr_dest_lp] + 64;
+            csr_n[csr_dest_lp] = csr_r[csr_dest_lp] + 16; // increments 128b, not a cache line since it is going to L2
             csr_en[csr_dest_lp] = 1'b1;
         end
     end
