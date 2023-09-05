@@ -55,8 +55,9 @@ module bp_be_pipe_accel
     localparam block_size_in_fill_lp = dcache_block_width_p / bedrock_fill_width_p;
     localparam fill_cnt_width_lp = `BSG_SAFE_CLOG2(block_size_in_fill_lp);
 
-    localparam csr_dest_lp = 0;
-    localparam num_csrs_lp = csr_dest_lp + 1;
+    localparam csr_dest_0_lp = 0;
+    localparam csr_dest_1_lp = 1;
+    localparam num_csrs_lp = csr_dest_1_lp + 1;
 
     bp_be_dispatch_pkt_s reservation;
     rv64_instr_itype_s reserve_instr;
@@ -65,6 +66,7 @@ module bp_be_pipe_accel
     bp_bedrock_mem_fwd_header_s fsm_fwd_header_li;
     logic [bedrock_fill_width_p-1:0] core_data_lo, fsm_fwd_data_li;
     logic fsm_fwd_v_li, fsm_fwd_ready_and_lo, core_v_lo, panic_fifo_ready_lo;
+    logic fsm_fwd_buf_li, core_buf_lo;
 
     logic fsm_rev_v_lo;
 
@@ -102,8 +104,13 @@ module bp_be_pipe_accel
             endcase
         end
         if (fsm_fwd_v_li & fsm_fwd_ready_and_lo) begin
-            csr_n[csr_dest_lp] = csr_r[csr_dest_lp] + 16; // increments 128b, not a cache line since it is going to L2
-            csr_en[csr_dest_lp] = 1'b1;
+            if (fsm_fwd_buf_li) begin
+                csr_n[csr_dest_1_lp] = csr_r[csr_dest_1_lp] + 16; // increments 128b, not a cache line since it is going to L2
+                csr_en[csr_dest_1_lp] = 1'b1;
+            end else begin
+                csr_n[csr_dest_0_lp] = csr_r[csr_dest_0_lp] + 16; // increments 128b, not a cache line since it is going to L2
+                csr_en[csr_dest_0_lp] = 1'b1;
+            end
         end
     end
 
@@ -189,20 +196,21 @@ module bp_be_pipe_accel
         ,.v_i(core_data_v & core_op_v)
 
         ,.data_o(core_data_lo)
+        ,.buf_o(core_buf_lo)
         ,.v_o(core_v_lo)
         ,.yumi_i(core_v_lo & panic_fifo_ready_lo)
         );
 
-    bsg_two_fifo #(.width_p(bedrock_fill_width_p))
+    bsg_two_fifo #(.width_p(1+bedrock_fill_width_p))
       panic_twofer
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
 
-        ,.data_i(core_data_lo)
+        ,.data_i({core_buf_lo, core_data_lo})
         ,.v_i(core_v_lo)
         ,.ready_o(panic_fifo_ready_lo)
 
-        ,.data_o(fsm_fwd_data_li)
+        ,.data_o({fsm_fwd_buf_li, fsm_fwd_data_li})
         ,.v_o(fsm_fwd_v_li)
         ,.yumi_i(fsm_fwd_v_li & fsm_fwd_ready_and_lo)
         );
@@ -213,7 +221,7 @@ module bp_be_pipe_accel
     always_comb begin
         fsm_fwd_header_li                = '0;
         fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
-        fsm_fwd_header_li.addr           = csr_r[csr_dest_lp];
+        fsm_fwd_header_li.addr           = fsm_fwd_buf_li ? csr_r[csr_dest_1_lp] : csr_r[csr_dest_0_lp];
         fsm_fwd_header_li.size           = e_bedrock_msg_size_16; // 128b
         fsm_fwd_header_li.payload.lce_id = lce_id_i;
         fsm_fwd_header_li.subop          = e_bedrock_store;
