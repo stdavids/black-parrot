@@ -147,8 +147,9 @@ module bp_be_pipe_accel
         end
     end
 
-    bsg_two_fifo #
-        (.width_p(2))
+    bsg_fifo_1r1w_small #
+        (.width_p(2)
+        ,.els_p(2))
     op_fifo
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
@@ -159,24 +160,24 @@ module bp_be_pipe_accel
 
         ,.data_o(core_op_n)
         ,.v_o(core_op_v)
-        ,.yumi_i(cache_wide_v_i)
+        ,.yumi_i(core_op_v & core_data_v)
         );
 
-    // bsg_fifo_1r1w_small #
-    //     (.width_p(dcache_block_width_p)
-    //     ,.els_p(2))
-    // data_fifo
-    //     (.clk_i(clk_i)
-    //     ,.reset_i(reset_i)
+    bsg_fifo_1r1w_small #
+        (.width_p(dcache_block_width_p)
+        ,.els_p(2))
+    data_fifo
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
 
-    //     ,.data_i(cache_wide_data_i)
-    //     ,.v_i(cache_wide_v_i)
-    //     ,.ready_o()
+        ,.data_i(cache_wide_data_i)
+        ,.v_i(cache_wide_v_i)
+        ,.ready_o()
 
-    //     ,.data_o(core_data_n)
-    //     ,.v_o(core_data_v)
-    //     ,.yumi_i(core_data_v & core_op_v)
-    //     );
+        ,.data_o(core_data_n)
+        ,.v_o(core_data_v)
+        ,.yumi_i(core_data_v & core_op_v)
+        );
 
     bsg_ws_systolic_array_xor
     xor_core
@@ -184,8 +185,8 @@ module bp_be_pipe_accel
         ,.reset_i(reset_i)
 
         ,.op_i(core_op_n)
-        ,.data_i(cache_wide_data_i)
-        ,.v_i(cache_wide_v_i)
+        ,.data_i(core_data_n)
+        ,.v_i(core_data_v & core_op_v)
 
         ,.data_o(core_data_lo)
         ,.v_o(core_v_lo)
