@@ -336,5 +336,9 @@ $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_csrs.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_core.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_xor.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_bf16.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_fifo_wavefront_out.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_bfloat_dp4.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_fp_raw_mul.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_fp_preprocess.sv
 $BP_DMA_DIR/src/v/bp_dma_engine.sv
