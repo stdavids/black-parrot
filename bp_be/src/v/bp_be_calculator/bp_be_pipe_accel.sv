@@ -186,7 +186,7 @@ module bp_be_pipe_accel
         ,.yumi_i(core_data_v & core_op_v)
         );
 
-    bsg_ws_systolic_array_xor
+    bsg_mla_ws_dpu_bp_neo
     xor_core
         (.clk_i(clk_i)
         ,.reset_i(reset_i)

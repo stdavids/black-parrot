@@ -20,6 +20,8 @@
 +incdir+$BP_ME_DIR/src/include
 # top includes
 +incdir+$BP_TOP_DIR/src/include
+# basejump_ml_atoms includes
++incdir+$BASEJUMP_ML_ATOMS_DIR/atoms/include
 ## Packages
 # BaseJump STL packages
 $BASEJUMP_STL_DIR/bsg_axi/bsg_axi_pkg.v
@@ -331,14 +333,20 @@ $BP_COMMON_DIR/src/v/bsg_rom_param.v
 # DMA Engine additional files
 $BASEJUMP_STL_DIR/bsg_dataflow/bsg_fifo_reorder.v
 $BASEJUMP_STL_DIR/bsg_mem/bsg_cam_1r1w_unmanaged.v
-$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_addr_gen.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_csrs.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_core.sv
+
+
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_accumulator_adder.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_dotproduct.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_fma.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_xor.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_bf16.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_addr_gen.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_core.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_dma_controller_csrs.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_dff_en_with_v.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_retime_dff.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_shift_reg_with_en.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_dpu/bsg_mla_ws_dpu_bp_neo.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/ws_dpu/bsg_mla_ws_dpu_pe.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_fifo_wavefront_out.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_bfloat_dp4.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_fp_raw_mul.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_fp_preprocess.sv
+
 $BP_DMA_DIR/src/v/bp_dma_engine.sv
