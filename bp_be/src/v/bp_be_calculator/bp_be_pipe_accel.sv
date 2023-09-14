@@ -178,7 +178,7 @@ module bp_be_pipe_accel
         ,.reset_i(reset_i)
 
         ,.data_i(cache_wide_data_i)
-        ,.v_i(cache_wide_v_i)
+        ,.v_i(cache_wide_v_i & ~panic_o)
         ,.ready_o()
 
         ,.data_o(core_data_n)
