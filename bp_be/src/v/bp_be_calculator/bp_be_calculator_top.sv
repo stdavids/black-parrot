@@ -480,17 +480,7 @@ module bp_be_calculator_top
      ,.csr_data_o(pipe_accel_data_lo)
      ,.csr_v_o(pipe_accel_data_lo_v)
 
-     ,.commit_instr_i(commit_pkt_cast_o.instr)
-     ,.commit_instr_v_i(commit_pkt_cast_o.instret)
-
-     ,.cache_incr_data_i(pipe_mem_incr_data_lo)
-     ,.cache_incr_v_i(pipe_mem_incr_data_lo_v)
-
-     ,.cache_early_data_i(pipe_mem_early_data_lo)
-     ,.cache_early_v_i(pipe_mem_early_data_lo_v)
-
-     ,.cache_final_data_i(pipe_mem_final_data_lo)
-     ,.cache_final_v_i(pipe_mem_final_data_lo_v)
+     ,.commit_pkt_i(commit_pkt_cast_o)
 
      ,.cache_wide_data_i(pipe_mem_wide_data_lo)
      ,.cache_wide_v_i(pipe_mem_wide_data_lo_v)

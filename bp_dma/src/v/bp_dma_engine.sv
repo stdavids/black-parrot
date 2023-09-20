@@ -128,7 +128,7 @@ module bp_dma_engine
         ,.data_i(csr_data_li)
         );
 
-    bsg_dma_controller #
+    bsg_mla_dma_controller #
         (.p_addr_width_p(dev_addr_width_gp)
         ,.p_data_width_p(64)
         ,.c_addr_width_p(paddr_width_p)
@@ -149,8 +149,6 @@ module bp_dma_engine
         ,.p_data_o(csr_data_li)
         ,.p_v_o()
 
-        ,.p_int_o()
-
         ,.c_rd_addr_o(c_rd_addr_lo)
         ,.c_rd_v_o(c_rd_v_lo)
         ,.c_rd_yumi_i(c_rd_v_lo & fsm_rd_fwd_ready_lo)
@@ -164,7 +162,10 @@ module bp_dma_engine
         ,.c_wr_mask_o()
         ,.c_wr_v_o(c_wr_v_lo)
         ,.c_wr_yumi_i(c_wr_v_lo & fsm_wr_fwd_ready_lo)
+
         ,.c_wr_ack_i(fsm_wr_rev_v_lo)
+
+        ,.interrupt_o()
         );
 
     bp_me_stream_pump_out #

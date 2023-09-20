@@ -1,37 +1,32 @@
 `include "bp_common_defines.svh"
 `include "bp_be_defines.svh"
 `include "bp_me_defines.svh"
+`include "bsg_mla_csr_pkg.svh"
 
 module bp_be_pipe_accel
     import bp_common_pkg::*;
     import bp_be_pkg::*;
+    import bsg_mla_csr_pkg::*;
+
 #(  parameter bp_params_e bp_params_p = e_bp_default_cfg
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_bedrock_mem_if_widths(paddr_width_p, did_width_p, lce_id_width_p, lce_assoc_p)
 ,   localparam dispatch_pkt_width_lp = `bp_be_dispatch_pkt_width(vaddr_width_p)
+,   localparam commit_pkt_width_lp   = `bp_be_commit_pkt_width(vaddr_width_p, paddr_width_p)
 )
 
 (   input                                       clk_i
 ,   input                                       reset_i
 
-,   input [dispatch_pkt_width_lp-1:0]           reservation_i
 ,   output logic                                busy_o
 ,   output logic                                panic_o
+
+,   input [dispatch_pkt_width_lp-1:0]           reservation_i
 
 ,   output logic [dpath_width_gp-1:0]           csr_data_o
 ,   output logic                                csr_v_o
 
-,   input [31:0]                                commit_instr_i
-,   input                                       commit_instr_v_i
-
-,   input [dpath_width_gp-1:0]                  cache_incr_data_i
-,   input                                       cache_incr_v_i
-
-,   input [dpath_width_gp-1:0]                  cache_early_data_i
-,   input                                       cache_early_v_i
-
-,   input [dpath_width_gp-1:0]                  cache_final_data_i
-,   input                                       cache_final_v_i
+,   input [commit_pkt_width_lp-1:0]             commit_pkt_i
 
 ,   input [dcache_block_width_p-1:0]            cache_wide_data_i
 ,   input                                       cache_wide_v_i
@@ -55,82 +50,111 @@ module bp_be_pipe_accel
     localparam block_size_in_fill_lp = dcache_block_width_p / bedrock_fill_width_p;
     localparam fill_cnt_width_lp = `BSG_SAFE_CLOG2(block_size_in_fill_lp);
 
-    localparam csr_dest_0_lp = 0;
-    localparam csr_dest_1_lp = 1;
-    localparam num_csrs_lp = csr_dest_1_lp + 1;
+    wire bp_be_dispatch_pkt_s reservation  = reservation_i;
+    wire bp_be_commit_pkt_s   commit_pkt   = commit_pkt_i;
 
-    bp_be_dispatch_pkt_s reservation;
-    rv64_instr_itype_s reserve_instr;
-    rv64_instr_itype_s commit_instr;
+    wire rv64_instr_itype_s   commit_instr = commit_pkt.instr;
 
-    bp_bedrock_mem_fwd_header_s fsm_fwd_header_li;
-    logic [bedrock_fill_width_p-1:0] core_data_lo, fsm_fwd_data_li;
-    logic fsm_fwd_v_li, fsm_fwd_ready_and_lo, core_v_lo, panic_fifo_ready_lo;
-    logic fsm_fwd_buf_li, core_buf_lo;
+    ///////////////////////////////////////////////////////////////////////////
+    //
+    // READ / WRITE CSRS
+    //
 
-    logic fsm_rev_v_lo;
+    localparam num_csrs_lp = 3;
 
-    logic [1:0] ws_op_n;
-    logic ws_op_v;
+    typedef enum logic [3:0] {
+        eDEST0 = 4'd0,
+        eDEST1 = 4'd1,
+        ePERF_WL_STALLS = 4'd2
+    } bp_be_pipe_accel_csrs_e;
 
-    logic [1:0] core_op_n;
-    logic core_op_v;
+    `bsg_mla_csr_init(num_csrs_lp, dpath_width_gp);
+        // Defines two logics:
+        //      1. csr_mem_data_li [data_width]
+        //      2. csr_mem_data_lo [num_csrs][data_width]
+        //      3. csr_mem_wen_li  [num_csrs]
 
-    logic [dcache_block_width_p-1:0] core_data_n;
-    logic core_data_v;
+    `bsg_mla_csr_create(dest0,          eDEST0,          dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(dest1,          eDEST1,          dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(perf_wl_stalls, ePERF_WL_STALLS, dpath_width_gp, dpath_width_gp);
+        // Create the CSR registers and connects to the csr_mem_* logics created before and creates
+        // 3 new logics for each CSR:
+        //      1. csr_core_``name``_n
+        //      2. csr_core_``name``_r
+        //      3. csr_core_``name``_wen
 
-    assign reservation   = reservation_i;
-    assign reserve_instr = reservation.instr;
-    assign commit_instr  = commit_instr_i;
+    assign csr_mem_data_li = reservation.rs1;
 
-    logic [num_csrs_lp-1:0][63:0] csr_n, csr_r;
-    logic [num_csrs_lp-1:0]       csr_en;
+    assign csr_core_dest0_wen          = 1'b0;
+    assign csr_core_dest1_wen          = 1'b0;
+    // assign csr_core_perf_wl_stalls_wen = 1'b0;
 
     always_comb begin
-        csr_n   = '0;
-        csr_en  = '0;
-        csr_v_o = 1'b0;
+        csr_mem_wen_li = '0;
+        csr_data_o     = '0;
+        csr_v_o        = '0;
         if (reservation.v) begin
-            unique casez (reserve_instr)
+            unique casez (reservation.instr)
                 `RV64_TENSOR_CSRST: begin
-                    csr_n [reserve_instr.imm12] = reservation.rs1[0+:64];
-                    csr_en[reserve_instr.imm12] = 1'b1;
+                    csr_mem_wen_li[reservation.imm] = 1'b1;
                 end
                 `RV64_TENSOR_CSRLD: begin
+                    csr_data_o = csr_mem_data_lo[reservation.imm];
                     csr_v_o = 1'b1;
                 end
                 default: begin
                 end
             endcase
         end
-        if (fsm_fwd_v_li & fsm_fwd_ready_and_lo) begin
-            if (fsm_fwd_buf_li) begin
-                csr_n[csr_dest_1_lp] = csr_r[csr_dest_1_lp] + 16; // increments 128b, not a cache line since it is going to L2
-                csr_en[csr_dest_1_lp] = 1'b1;
-            end else begin
-                csr_n[csr_dest_0_lp] = csr_r[csr_dest_0_lp] + 16; // increments 128b, not a cache line since it is going to L2
-                csr_en[csr_dest_0_lp] = 1'b1;
-            end
-        end
     end
 
-    for (genvar i = 0; i < num_csrs_lp; i++) begin
-        always_ff @(posedge clk_i) begin
+    // wl-stall counter
+    logic is_wl_stalling_r, is_wl_stalling_n;
+
+    always_comb
+        begin
+            is_wl_stalling_n = is_wl_stalling_r;
+            if (is_wl_stalling_r & cache_wide_v_i) begin
+                is_wl_stalling_n = 1'b0;
+            end else if (~is_wl_stalling_r & commit_pkt.dcache_replay & commit_instr.opcode == 7'h0b) begin
+                is_wl_stalling_n = 1'b1;
+            end
+        end
+
+    always_ff @(posedge clk_i)
+        begin
             if (reset_i) begin
-                csr_r[i] <= '0;
-            end else if (csr_en[i]) begin
-                csr_r[i] <= csr_n[i];
+                is_wl_stalling_r <= 1'b0;
+            end else begin
+                is_wl_stalling_r <= is_wl_stalling_n;
             end
         end
-    end
 
-    assign csr_data_o = {{dpath_width_gp-64{1'b0}}, csr_r[reserve_instr.imm12]};
+    assign csr_core_perf_wl_stalls_n = csr_core_perf_wl_stalls_r + 1'b1;
+    assign csr_core_perf_wl_stalls_wen = is_wl_stalling_r;
 
+    ///////////////////////////////////////////////////////////////////////////
+    //
+    // MAIN TENSOR-CORE OPERATIONS
+    //
+
+    logic [bedrock_fill_width_p-1:0] core_data_lo, fsm_fwd_data_li;
+    logic fsm_fwd_v_li, fsm_fwd_ready_and_lo, core_v_lo, panic_fifo_ready_lo;
+    logic fsm_fwd_buf_li, core_buf_lo;
+
+    logic [1:0] ws_op_n;
+    logic       ws_op_v;
+
+    logic [1:0] core_op_n;
+    logic       core_op_v;
+
+    logic [dcache_block_width_p-1:0] core_data_n;
+    logic core_data_v;
 
     always_comb begin
         ws_op_n = '0;
         ws_op_v = 1'b0;
-        if (commit_instr_v_i) begin
+        if (commit_pkt.instret) begin
             unique casez (commit_instr)
                 `RV64_TENSOR_ACLD0: begin
                     ws_op_n = 2'b00;
@@ -201,8 +225,9 @@ module bp_be_pipe_accel
         ,.yumi_i(core_v_lo & panic_fifo_ready_lo)
         );
 
-    bsg_two_fifo #(.width_p(1+bedrock_fill_width_p))
-      panic_twofer
+    bsg_two_fifo #
+        (.width_p(1+bedrock_fill_width_p))
+    panic_twofer
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
 
@@ -218,14 +243,16 @@ module bp_be_pipe_accel
     assign busy_o = ~panic_fifo_ready_lo;
     assign panic_o = core_v_lo & fsm_fwd_v_li & ~fsm_fwd_ready_and_lo;
 
-    always_comb begin
-        fsm_fwd_header_li                = '0;
-        fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
-        fsm_fwd_header_li.addr           = fsm_fwd_buf_li ? csr_r[csr_dest_1_lp] : csr_r[csr_dest_0_lp];
-        fsm_fwd_header_li.size           = e_bedrock_msg_size_16; // 128b
-        fsm_fwd_header_li.payload.lce_id = lce_id_i;
-        fsm_fwd_header_li.subop          = e_bedrock_store;
-    end
+    bp_bedrock_mem_fwd_header_s fsm_fwd_header_li;
+    always_comb
+        begin
+            fsm_fwd_header_li                = '0;
+            fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
+            fsm_fwd_header_li.addr           = fsm_fwd_buf_li ? csr_core_dest1_r : csr_core_dest0_r;
+            fsm_fwd_header_li.size           = e_bedrock_msg_size_64; // 128b
+            fsm_fwd_header_li.payload.lce_id = lce_id_i;
+            fsm_fwd_header_li.subop          = e_bedrock_store;
+        end
 
     bp_me_stream_pump_out #
         (.bp_params_p(bp_params_p)
@@ -253,6 +280,12 @@ module bp_be_pipe_accel
         ,.fsm_critical_o()
         ,.fsm_last_o()
         );
+
+    //
+    // simply need to capture returns for our writes... nothing is really done here.
+    //
+
+    logic fsm_rev_v_lo;
 
     bp_me_stream_pump_in #
         (.bp_params_p(bp_params_p)
