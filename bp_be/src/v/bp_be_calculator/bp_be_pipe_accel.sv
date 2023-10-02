@@ -57,37 +57,75 @@ module bp_be_pipe_accel
 
     ///////////////////////////////////////////////////////////////////////////
     //
+    // COMMIT INSTRUCTION DECODE
+    //
+
+    typedef struct packed {
+        logic wl_op;
+        logic al_op;
+    } bp_be_pipe_accel_decode_s;
+
+    bp_be_pipe_accel_decode_s commit_decode;
+
+    always_comb
+        begin
+            commit_decode = '0;
+            unique casez (commit_instr)
+                `RV64_TENSOR_ACLD0: begin
+                    commit_decode.al_op = 1'b1;
+                end
+                `RV64_TENSOR_ACLD1: begin
+                    commit_decode.al_op = 1'b1;
+                end
+                `RV64_TENSOR_WTLD0: begin
+                    commit_decode.wl_op = 1'b1;
+                end
+                `RV64_TENSOR_WTLD1: begin
+                    commit_decode.wl_op = 1'b1;
+                end
+                default: begin
+                end
+            endcase
+        end
+
+    ///////////////////////////////////////////////////////////////////////////
+    //
     // READ / WRITE CSRS
     //
 
-    localparam num_csrs_lp = 3;
+    localparam num_csrs_lp = 32;
 
-    typedef enum logic [3:0] {
-        eDEST0 = 4'd0,
-        eDEST1 = 4'd1,
-        ePERF_WL_STALLS = 4'd2
+    typedef enum logic [4:0] {
+        eDEST0 = 5'd0,
+        eDEST1 = 5'd1,
+
+        ePERF_WL_STALLS = 5'd2,
+        ePERF_AL_STALLS = 5'd3,
+        ePANIC_STALLS   = 5'd4
     } bp_be_pipe_accel_csrs_e;
 
-    `bsg_mla_csr_init(num_csrs_lp, dpath_width_gp);
-        // Defines two logics:
-        //      1. csr_mem_data_li [data_width]
-        //      2. csr_mem_data_lo [num_csrs][data_width]
-        //      3. csr_mem_wen_li  [num_csrs]
+    wire [dpath_width_gp-1:0] csr_mem_data_li = reservation.rs1;
+
+    logic [num_csrs_lp-1:0] csr_mem_wen_li;
+    logic [num_csrs_lp-1:0][dpath_width_gp-1:0] csr_mem_data_lo;
 
     `bsg_mla_csr_create(dest0,          eDEST0,          dpath_width_gp, dpath_width_gp);
     `bsg_mla_csr_create(dest1,          eDEST1,          dpath_width_gp, dpath_width_gp);
     `bsg_mla_csr_create(perf_wl_stalls, ePERF_WL_STALLS, dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(perf_al_stalls, ePERF_AL_STALLS, dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(panic_stalls,   ePANIC_STALLS,   dpath_width_gp, dpath_width_gp);
+    //`bsg_mla_csr_create(idle_cycles,    eIDLE_CYCLES,    dpath_width_gp, dpath_width_gp);
         // Create the CSR registers and connects to the csr_mem_* logics created before and creates
         // 3 new logics for each CSR:
         //      1. csr_core_``name``_n
         //      2. csr_core_``name``_r
         //      3. csr_core_``name``_wen
 
-    assign csr_mem_data_li = reservation.rs1;
-
-    assign csr_core_dest0_wen          = 1'b0;
-    assign csr_core_dest1_wen          = 1'b0;
-    // assign csr_core_perf_wl_stalls_wen = 1'b0;
+    // No core-side writes for these csrs
+    assign csr_core_dest0_n = csr_core_dest0_r + 16;
+    assign csr_core_dest1_n = csr_core_dest1_r + 16;
+    assign csr_core_dest0_wen = 1'b0;
+    assign csr_core_dest1_wen = 1'b0;
 
     always_comb begin
         csr_mem_wen_li = '0;
@@ -108,30 +146,50 @@ module bp_be_pipe_accel
         end
     end
 
-    // wl-stall counter
-    logic is_wl_stalling_r, is_wl_stalling_n;
+    bsg_mla_csr_perf_ctr #
+        (.core_width_p(dpath_width_gp))
+    perf_wl_stals
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.start_i(commit_pkt.dcache_replay & commit_decode.wl_op)
+        ,.stop_i(cache_wide_v_i)
 
-    always_comb
-        begin
-            is_wl_stalling_n = is_wl_stalling_r;
-            if (is_wl_stalling_r & cache_wide_v_i) begin
-                is_wl_stalling_n = 1'b0;
-            end else if (~is_wl_stalling_r & commit_pkt.dcache_replay & commit_instr.opcode == 7'h0b) begin
-                is_wl_stalling_n = 1'b1;
-            end
-        end
+        ,.core_data_r_i(csr_core_perf_wl_stalls_r)
+        ,.core_data_n_o(csr_core_perf_wl_stalls_n)
+        ,.core_wen_o(csr_core_perf_wl_stalls_wen)
 
-    always_ff @(posedge clk_i)
-        begin
-            if (reset_i) begin
-                is_wl_stalling_r <= 1'b0;
-            end else begin
-                is_wl_stalling_r <= is_wl_stalling_n;
-            end
-        end
+        ,.running_o()
+        );
 
-    assign csr_core_perf_wl_stalls_n = csr_core_perf_wl_stalls_r + 1'b1;
-    assign csr_core_perf_wl_stalls_wen = is_wl_stalling_r;
+    bsg_mla_csr_perf_ctr #
+        (.core_width_p(dpath_width_gp))
+    perf_al_stals
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.start_i(commit_pkt.dcache_replay & commit_decode.al_op)
+        ,.stop_i(cache_wide_v_i)
+
+        ,.core_data_r_i(csr_core_perf_al_stalls_r)
+        ,.core_data_n_o(csr_core_perf_al_stalls_n)
+        ,.core_wen_o(csr_core_perf_al_stalls_wen)
+
+        ,.running_o()
+        );
+
+    bsg_mla_csr_perf_ctr #
+        (.core_width_p(dpath_width_gp))
+    panic_stalls
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.start_i(panic_o)
+        ,.stop_i(~panic_o)
+
+        ,.core_data_r_i(csr_core_panic_stalls_r)
+        ,.core_data_n_o(csr_core_panic_stalls_n)
+        ,.core_wen_o(csr_core_panic_stalls_wen)
+
+        ,.running_o()
+        );
 
     ///////////////////////////////////////////////////////////////////////////
     //
@@ -210,6 +268,9 @@ module bp_be_pipe_accel
         ,.yumi_i(core_data_v & core_op_v)
         );
 
+    logic [dpath_width_gp-1:0] addr_lo;
+    logic last_lo;
+
     bsg_mla_ws_dpu_bp_neo
     xor_core
         (.clk_i(clk_i)
@@ -217,12 +278,15 @@ module bp_be_pipe_accel
 
         ,.op_i(core_op_n)
         ,.data_i(core_data_n)
+        ,.addr_i(csr_core_dest0_r)
         ,.v_i(core_data_v & core_op_v)
 
         ,.data_o(core_data_lo)
         ,.buf_o(core_buf_lo)
+        ,.addr_o(addr_lo)
         ,.v_o(core_v_lo)
         ,.yumi_i(core_v_lo & panic_fifo_ready_lo)
+        ,.addr_yumi_i(last_lo & fsm_fwd_v_li & fsm_fwd_ready_and_lo)
         );
 
     bsg_two_fifo #
@@ -248,7 +312,7 @@ module bp_be_pipe_accel
         begin
             fsm_fwd_header_li                = '0;
             fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
-            fsm_fwd_header_li.addr           = fsm_fwd_buf_li ? csr_core_dest1_r : csr_core_dest0_r;
+            fsm_fwd_header_li.addr           = addr_lo;
             fsm_fwd_header_li.size           = e_bedrock_msg_size_64; // 128b
             fsm_fwd_header_li.payload.lce_id = lce_id_i;
             fsm_fwd_header_li.subop          = e_bedrock_store;
@@ -278,7 +342,7 @@ module bp_be_pipe_accel
 
         ,.fsm_new_o()
         ,.fsm_critical_o()
-        ,.fsm_last_o()
+        ,.fsm_last_o(last_lo)
         );
 
     //
@@ -314,4 +378,4 @@ module bp_be_pipe_accel
         ,.fsm_last_o()
         );
 
-endmodule
+endmodule // bp_be_pipe_accel
