@@ -102,7 +102,7 @@ module bp_be_dcache
    , parameter fill_width_p   = dcache_fill_width_p
    , parameter ctag_width_p   = dcache_ctag_width_p
 
-   `declare_bp_cache_engine_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, dcache)
+   `declare_bp_be_dcache_engine_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p)
 
    , localparam cfg_bus_width_lp    = `bp_cfg_bus_width(vaddr_width_p, hio_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p, did_width_p)
    , localparam dcache_pkt_width_lp = `bp_be_dcache_pkt_width(vaddr_width_p)
@@ -158,6 +158,7 @@ module bp_be_dcache
    , output logic                                    cache_req_metadata_v_o
    , input [paddr_width_p-1:0]                       cache_req_addr_i
    , input [dword_width_gp-1:0]                      cache_req_data_i
+   , input [dcache_req_payload_width_lp-1:0]         cache_req_payload_i
    , input                                           cache_req_critical_i
    , input                                           cache_req_last_i
    // Unused
@@ -180,7 +181,7 @@ module bp_be_dcache
    , output logic [dcache_stat_info_width_lp-1:0]    stat_mem_o
    );
 
-  `declare_bp_cache_engine_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, dcache);
+  `declare_bp_be_dcache_engine_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p);
 
   localparam lg_assoc_lp              = `BSG_SAFE_CLOG2(assoc_p);
   localparam bank_width_lp            = block_width_p / assoc_p;
@@ -222,13 +223,11 @@ module bp_be_dcache
   logic [dword_width_gp-1:0] snoop_st_data;
   logic [2:0][assoc_p-1:0] snoop_hit;
   logic [assoc_p-1:0] snoop_bank_sel_one_hot;
+  bp_be_dcache_decode_s snoop_decode;
+  logic snoop_uncached;
 
   // Fill signals
-  logic fill_snoop_v, fill_pending_r, fill_secondary_r, fill_uncached_r;
-  bp_be_dcache_decode_s fill_decode_r;
-  logic [sindex_width_lp-1:0] fill_index_r;
-  logic [assoc_p-1:0] fill_hit_r;
-  logic [assoc_p-1:0] fill_bank_mask_r;
+  logic fill_snoop_v, fill_pending_r, fill_secondary_r;
 
   /////////////////////////////////////////////////////////////////////////////
   // Decode Stage
@@ -252,13 +251,13 @@ module bp_be_dcache
   ///////////////////////////
   // Tag Mem Storage
   ///////////////////////////
-  `bp_cast_i(bp_dcache_tag_mem_pkt_s, tag_mem_pkt);
+  `bp_cast_i(bp_be_dcache_tag_mem_pkt_s, tag_mem_pkt);
   logic                              tag_mem_v_li;
   logic                              tag_mem_w_li;
   logic [sindex_width_lp-1:0]        tag_mem_addr_li;
-  bp_dcache_tag_info_s [assoc_p-1:0] tag_mem_data_li;
-  bp_dcache_tag_info_s [assoc_p-1:0] tag_mem_mask_li;
-  bp_dcache_tag_info_s [assoc_p-1:0] tag_mem_data_lo;
+  bp_be_dcache_tag_info_s [assoc_p-1:0] tag_mem_data_li;
+  bp_be_dcache_tag_info_s [assoc_p-1:0] tag_mem_mask_li;
+  bp_be_dcache_tag_info_s [assoc_p-1:0] tag_mem_data_lo;
 
   bsg_mem_1rw_sync_mask_write_bit
     #(.width_p(dcache_tag_info_width_lp*assoc_p)
@@ -280,7 +279,7 @@ module bp_be_dcache
   // Data Mem Storage
   ///////////////////////////
   localparam data_mem_addr_width_lp = (assoc_p > 1) ? (sindex_width_lp+bindex_width_lp) : sindex_width_lp;
-  `bp_cast_i(bp_dcache_data_mem_pkt_s, data_mem_pkt);
+  `bp_cast_i(bp_be_dcache_data_mem_pkt_s, data_mem_pkt);
   logic [assoc_p-1:0]                               data_mem_v_li;
   logic [assoc_p-1:0]                               data_mem_w_li;
   logic [assoc_p-1:0][data_mem_addr_width_lp-1:0]   data_mem_addr_li;
@@ -376,7 +375,7 @@ module bp_be_dcache
   /////////////////////////////////////////////////////////////////////////////
   // TV Stage
   /////////////////////////////////////////////////////////////////////////////
-  logic uncached_op_tv_r, snoop_tv_r, pending_tv_r;
+  logic uncached_op_tv_r, snoop_tv_r;
   logic [paddr_width_p-1:0] paddr_tv_r;
   logic [dword_width_gp-1:0] st_data_tv_r;
   logic [assoc_p-1:0][bank_width_lp-1:0] ld_data_tv_r;
@@ -411,7 +410,7 @@ module bp_be_dcache
    #(.width_p(3*assoc_p+block_width_p+dword_width_gp+paddr_width_p+assoc_p+1+$bits(bp_be_dcache_decode_s)), .els_p(2))
    tv_snoop_mux
     (.data_i({{snoop_hit, snoop_ld_data, snoop_st_data, snoop_addr, snoop_bank_sel_one_hot
-               ,fill_uncached_r, fill_decode_r}
+               ,snoop_uncached, snoop_decode}
               ,{way_v_tl, store_hit_tl, load_hit_tl, data_mem_data_lo, st_data_tl, paddr_tl, bank_sel_one_hot_tl
                 ,uncached_op_tl, decode_tl_r}
               })
@@ -421,15 +420,14 @@ module bp_be_dcache
                })
      );
 
-  wire pending_tv_n = fill_pending_r;
   wire snoop_tv_n = critical_recv;
   bsg_dff
-   #(.width_p(2+3*assoc_p+paddr_width_p+block_width_p+dword_width_gp+assoc_p+1+$bits(bp_be_dcache_decode_s)))
+   #(.width_p(1+3*assoc_p+paddr_width_p+block_width_p+dword_width_gp+assoc_p+1+$bits(bp_be_dcache_decode_s)))
    tv_stage_reg
     (.clk_i(clk_i)
-     ,.data_i({pending_tv_n, snoop_tv_n, way_v_tv_n, store_hit_tv_n, load_hit_tv_n, paddr_tv_n, ld_data_tv_n
+     ,.data_i({snoop_tv_n, way_v_tv_n, store_hit_tv_n, load_hit_tv_n, paddr_tv_n, ld_data_tv_n
                ,st_data_tv_n, bank_sel_one_hot_tv_n, uncached_op_tv_n, decode_tv_n})
-     ,.data_o({pending_tv_r, snoop_tv_r, way_v_tv_r, store_hit_v_tv_r, load_hit_v_tv_r, paddr_tv_r, ld_data_tv_r
+     ,.data_o({snoop_tv_r, way_v_tv_r, store_hit_v_tv_r, load_hit_v_tv_r, paddr_tv_r, ld_data_tv_r
                ,st_data_tv_r, bank_sel_one_hot_tv_r, uncached_op_tv_r, decode_tv_r})
      );
 
@@ -453,13 +451,13 @@ module bp_be_dcache
      ,.v_o(load_hit_tv)
      );
 
-  logic [assoc_p-1:0] ld_data_way_select;
+  logic [assoc_p-1:0] ld_data_way_select_tv;
   bsg_adder_one_hot
    #(.width_p(assoc_p))
    select_adder
     (.a_i(load_hit_v_tv_r)
      ,.b_i(bank_sel_one_hot_tv_r)
-     ,.o(ld_data_way_select)
+     ,.o(ld_data_way_select_tv)
      );
 
   logic [bank_width_lp-1:0] ld_data_way_picked;
@@ -467,7 +465,7 @@ module bp_be_dcache
    #(.width_p(bank_width_lp), .els_p(assoc_p))
    ld_data_set_select_mux
     (.data_i(ld_data_tv_r)
-     ,.sel_one_hot_i(ld_data_way_select)
+     ,.sel_one_hot_i(ld_data_way_select_tv)
      ,.data_o(ld_data_way_picked)
      );
 
@@ -554,16 +552,6 @@ module bp_be_dcache
      ,.data_o(v_dm_r)
      );
 
-
-      logic [dword_width_gp-1:0] debug_data_dm;
-      bp_be_reg_to_fp
-       #(.bp_params_p(bp_params_p))
-       unrecode
-        (.reg_i(data_dm_r)
-         ,.raw_o(debug_data_dm)
-         );
-
-
   wire [dpath_width_gp-1:0] data_dm_n = decode_tv_r.float_op ? float_data_tv : dword_data_tv;
   bsg_dff
    #(.width_p(1+$bits(bp_be_dcache_decode_s)+paddr_width_p+dpath_width_gp))
@@ -585,13 +573,13 @@ module bp_be_dcache
   ///////////////////////////
   // Stat Mem Storage
   ///////////////////////////
-  `bp_cast_i(bp_dcache_stat_mem_pkt_s, stat_mem_pkt);
+  `bp_cast_i(bp_be_dcache_stat_mem_pkt_s, stat_mem_pkt);
   logic stat_mem_v_li;
   logic stat_mem_w_li;
   logic [sindex_width_lp-1:0] stat_mem_addr_li;
-  bp_dcache_stat_info_s stat_mem_data_li;
-  bp_dcache_stat_info_s stat_mem_mask_li;
-  bp_dcache_stat_info_s stat_mem_data_lo;
+  bp_be_dcache_stat_info_s stat_mem_data_li;
+  bp_be_dcache_stat_info_s stat_mem_mask_li;
+  bp_be_dcache_stat_info_s stat_mem_data_lo;
 
   bsg_mem_1rw_sync_mask_write_bit
    #(.width_p(dcache_stat_info_width_lp)
@@ -720,8 +708,8 @@ module bp_be_dcache
      ,.sel_one_hot_i({decode_tv_r.double_op, decode_tv_r.word_op, decode_tv_r.half_op, decode_tv_r.byte_op})
      ,.data_o(wbuf_entry_in.mask)
      );
+  assign wbuf_entry_in.bank_sel = ld_data_way_select_tv;
   assign wbuf_entry_in.caddr = paddr_tv_r;
-  assign wbuf_entry_in.way_id = store_hit_way_tv;
   assign wbuf_entry_in.snoop = snoop_tv_r;
 
   wire [caddr_width_p-1:0] ld_addr_tl = {ptag_i, vaddr_tl_r[0+:page_offset_width_gp]};
@@ -765,8 +753,9 @@ module bp_be_dcache
   // Slow Path
   /////////////////////////////////////////////////////////////////////////////
   localparam block_req_size = bp_cache_req_size_e'(`BSG_SAFE_CLOG2(block_width_p/8));
-  `bp_cast_o(bp_dcache_req_s, cache_req);
-  `bp_cast_o(bp_dcache_req_metadata_s, cache_req_metadata);
+  `bp_cast_o(bp_be_dcache_req_s, cache_req);
+  `bp_cast_o(bp_be_dcache_req_metadata_s, cache_req_metadata);
+  `bp_cast_i(bp_be_dcache_req_payload_s, cache_req_payload);
 
   wire load_req            = ~uncached_op_tv_r & load_miss_tv & ~snoop_tv_r;
   wire store_req           = ~uncached_op_tv_r & store_miss_tv & ~snoop_tv_r;
@@ -787,12 +776,15 @@ module bp_be_dcache
   assign blocking_hazard = cache_req_v_o & blocking_req;
   assign engine_hazard   = cache_req_v_o & ~cache_req_yumi_i;
 
+  bp_be_dcache_req_payload_s req_payload;
+  assign req_payload = '{decode: decode_tv_r, uncached: uncached_op_tv_r};
   always_comb
     begin
       cache_req_cast_o = '0;
       cache_req_cast_o.addr = paddr_tv_r;
       cache_req_cast_o.data = nonblocking_req ? wbuf_entry_in.data : st_data_tv_r;
       cache_req_cast_o.hit = load_hit_tv;
+      cache_req_cast_o.payload = req_payload;
 
       // Assigning sizes to cache miss packet
       if (load_req | store_req)
@@ -987,16 +979,6 @@ module bp_be_dcache
      );
   wire [assoc_p-1:0][bank_width_lp-1:0] data_mem_pkt_data_li = {block_size_in_fill_lp{data_mem_pkt_fill_data_li}};
 
-  logic [assoc_p-1:0] wbuf_bank_sel_one_hot;
-  wire [bindex_width_lp-1:0] wbuf_data_mem_offset =
-    (bindex_width_lp'(wbuf_entry_out.way_id) + wbuf_entry_out_bank_offset);
-  bsg_decode
-   #(.num_out_p(assoc_p))
-   wbuf_bank_sel_one_hot_decode
-    (.i(wbuf_data_mem_offset)
-     ,.o(wbuf_bank_sel_one_hot)
-     );
-
   localparam dword_mask_width_lp = `BSG_SAFE_CLOG2(num_dwords_per_bank_lp);
   wire [dword_mask_width_lp-1:0] wbuf_dword_sel = wbuf_entry_out.caddr[3+:dword_mask_width_lp];
   wire [byte_offset_width_lp-1:0] mask_shift = (num_dwords_per_bank_lp > 1)
@@ -1008,13 +990,13 @@ module bp_be_dcache
   logic [assoc_p-1:0] data_mem_force_write;
   for (genvar i = 0; i < assoc_p; i++)
     begin : data_mem_lines
-      assign data_mem_force_write[i] = wbuf_v_lo & wbuf_force_lo & wbuf_bank_sel_one_hot[i];
+      assign data_mem_force_write[i] = wbuf_v_lo & wbuf_force_lo & wbuf_entry_out.bank_sel[i];
       assign data_mem_slow_write[i] = data_mem_pkt_yumi_o
         & (data_mem_pkt_cast_i.opcode == e_cache_data_mem_write) & data_mem_write_bank_mask[i];
       assign data_mem_slow_read[i] = data_mem_pkt_yumi_o
         & (data_mem_pkt_cast_i.opcode == e_cache_data_mem_read);
       assign data_mem_fast_read[i] = safe_tl_we & decode_lo.load_op;
-      assign data_mem_fast_write[i] = wbuf_yumi_li & wbuf_bank_sel_one_hot[i];
+      assign data_mem_fast_write[i] = wbuf_yumi_li & wbuf_entry_out.bank_sel[i];
 
       assign data_mem_v_li[i] = data_mem_fast_read[i]
         | data_mem_fast_write[i]
@@ -1038,7 +1020,7 @@ module bp_be_dcache
         ? {num_dwords_per_bank_lp{wbuf_entry_out.data}}
         : data_mem_pkt_data_li[i];
     end
-  assign wbuf_yumi_li = wbuf_v_lo && (~|{data_mem_fast_read & wbuf_bank_sel_one_hot} || wbuf_force_lo);
+  assign wbuf_yumi_li = wbuf_v_lo && (~|{data_mem_fast_read & wbuf_entry_out.bank_sel} || wbuf_force_lo);
   // If we didn't read all banks, this could be more efficient
   assign data_mem_write_hazard = |{data_mem_fast_read & data_mem_force_write};
 
@@ -1231,6 +1213,9 @@ module bp_be_dcache
   assign snoop_ld_data = data_mem_data_li;
   assign snoop_st_data = cache_req_data_i;
   assign snoop_addr    = cache_req_addr_i;
+  assign snoop_decode   = cache_req_payload_cast_i.decode;
+  assign snoop_uncached = cache_req_payload_cast_i.uncached;
+
 
   wire [bindex_width_lp-1:0] snoop_bank = cache_req_addr_i[byte_offset_width_lp+:bindex_width_lp];
   bsg_decode
@@ -1277,32 +1262,26 @@ module bp_be_dcache
         & (~tag_mem_pkt_v_i | tag_mem_pkt_yumi_o)
         & (~data_mem_pkt_v_i | data_mem_pkt_yumi_o);
 
+      logic [assoc_p-1:0] fill_hit_r;
+      logic [assoc_p-1:0] fill_bank_mask_r;
+      logic [sindex_width_lp-1:0] fill_index_r;
       wire [assoc_p-1:0] fill_bank_mask_n = fill_v
         ? (fill_bank_mask_r & ~data_mem_pkt_fill_mask_expanded)
         : '1;
       wire [assoc_p-1:0] fill_hit_n = fill_v
         ? (1'b1 << data_mem_pkt_cast_i.way_id)
         : '1;
+      wire [sindex_width_lp-1:0] fill_index_n = fill_v
+        ? fill_index_r
+        : paddr_tv_r[block_offset_width_lp+:sindex_width_lp];
       bsg_dff_reset_en
-       #(.width_p(2*assoc_p))
+       #(.width_p(sindex_width_lp+2*assoc_p))
        fill_reg
         (.clk_i(clk_i)
          ,.reset_i(reset_i)
          ,.en_i(fill_recv | blocking_sent)
-         ,.data_i({fill_bank_mask_n, fill_hit_n})
-         ,.data_o({fill_bank_mask_r, fill_hit_r})
-         );
-
-      wire fill_uncached_n = uncached_op_tv_r;
-      wire [$bits(bp_be_dcache_decode_s)-1:0] fill_decode_n = decode_tv_r;
-      wire [sindex_width_lp-1:0] fill_index_n = paddr_tv_r[block_offset_width_lp+:sindex_width_lp];
-      bsg_dff_en
-       #(.width_p(sindex_width_lp+1+$bits(bp_be_dcache_decode_s)))
-       fill_metadata_reg
-        (.clk_i(clk_i)
-         ,.en_i(blocking_sent)
-         ,.data_i({fill_index_n, fill_uncached_n, fill_decode_n})
-         ,.data_o({fill_index_r, fill_uncached_r, fill_decode_r})
+         ,.data_i({fill_index_n, fill_bank_mask_n, fill_hit_n})
+         ,.data_o({fill_index_r, fill_bank_mask_r, fill_hit_r})
          );
 
       assign fill_snoop_v = critical_recv;
@@ -1323,13 +1302,6 @@ module bp_be_dcache
          ,.data_o(fill_pending_r)
          );
       assign fill_secondary_r = fill_pending_r;
-
-      assign fill_bank_mask_r = '0;
-      assign fill_hit_r = '0;
-      assign fill_index_r = '0;
-
-      assign fill_uncached_r = uncached_op_tv_r;
-      assign fill_decode_r = decode_tv_r;
 
       assign fill_snoop_v = blocking_sent | fill_pending_r;
       assign fill_hazard = '0;

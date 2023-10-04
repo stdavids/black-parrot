@@ -29,9 +29,11 @@ module bp_lce
    // issue non-exclusive read requests
    , parameter non_excl_reads_p = 0
    , parameter `BSG_INV_PARAM(ctag_width_p)
+   , parameter `BSG_INV_PARAM(payload_width_p)
 
    `declare_bp_bedrock_if_widths(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p)
-   `declare_bp_cache_engine_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, cache)
+   `declare_bp_cache_engine_generic_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p,
+dword_width_gp, block_width_p, fill_width_p, payload_width_p, cache)
   )
   (
     input                                            clk_i
@@ -54,6 +56,7 @@ module bp_lce
     , input                                          cache_req_metadata_v_i
     , output logic [paddr_width_p-1:0]               cache_req_addr_o
     , output logic [dword_width_gp-1:0]              cache_req_data_o
+    , output logic [payload_width_p-1:0]             cache_req_payload_o
     , output logic                                   cache_req_critical_o
     , output logic                                   cache_req_last_o
     , output logic                                   cache_req_credits_full_o
@@ -120,7 +123,7 @@ module bp_lce
   if (fill_width_p < dword_width_gp)
     $error("fill width must be greater or equal than cache request data width");
 
-  `declare_bp_cache_engine_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, cache);
+  `declare_bp_cache_engine_generic_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, logic [payload_width_p-1:0], cache);
   `declare_bp_bedrock_if(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p);
 
   // LCE Request Module
@@ -136,6 +139,7 @@ module bp_lce
      ,.block_width_p(block_width_p)
      ,.fill_width_p(fill_width_p)
      ,.ctag_width_p(ctag_width_p)
+     ,.payload_width_p(payload_width_p)
      ,.credits_p(credits_p)
      ,.non_excl_reads_p(non_excl_reads_p)
      )
@@ -162,6 +166,7 @@ module bp_lce
      ,.cache_req_done_i(cache_req_done_lo)
      ,.cache_req_addr_o(cache_req_addr_o)
      ,.cache_req_data_o(cache_req_data_o)
+     ,.cache_req_payload_o(cache_req_payload_o)
 
      ,.lce_req_header_o(lce_req_header_o)
      ,.lce_req_data_o(lce_req_data_o)

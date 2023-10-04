@@ -31,13 +31,15 @@ module bp_lce_req
    , parameter credits_p = coh_noc_max_credits_p
    // issue non-exclusive read requests
    , parameter non_excl_reads_p = 0
+   , parameter `BSG_INV_PARAM(payload_width_p)
 
    // byte offset bits required per bedrock data channel beat
    , localparam bedrock_byte_offset_lp = `BSG_SAFE_CLOG2(fill_width_p/8)
    , localparam bit [paddr_width_p-1:0] req_addr_mask = {paddr_width_p{1'b1}} << bedrock_byte_offset_lp
 
    `declare_bp_bedrock_if_widths(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p)
-   `declare_bp_cache_engine_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, cache)
+   `declare_bp_cache_engine_generic_if_widths(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp,
+block_width_p, fill_width_p, payload_width_p, cache)
   )
   (
     input                                            clk_i
@@ -85,7 +87,7 @@ module bp_lce_req
   );
 
   `declare_bp_bedrock_if(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p);
-  `declare_bp_cache_engine_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, cache);
+  `declare_bp_cache_engine_generic_if(paddr_width_p, ctag_width_p, sets_p, assoc_p, dword_width_gp, block_width_p, fill_width_p, logic [payload_width_p-1:0],  cache);
   `bp_cast_o(bp_bedrock_lce_req_header_s, lce_req_header);
   `bp_cast_i(bp_cache_req_s, cache_req);
   `bp_cast_i(bp_cache_req_metadata_s, cache_req_metadata);
