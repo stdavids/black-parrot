@@ -404,7 +404,6 @@ module bp_be_calculator_top
 
      ,.ptw_fill_pkt_o(ptw_fill_pkt_o)
      ,.ptw_fill_v_o(ptw_fill_v)
-     ,.ptw_fill_yumi_i(ptw_fill_yumi)
 
      ,.trans_info_i(trans_info_lo)
      );
@@ -458,8 +457,8 @@ module bp_be_calculator_top
    #(.inputs_p(1+num_late_wb_lp), .lo_to_hi_p(1))
    late_wb_arb
     (.ready_i(1'b1)
-     ,.reqs_i({ptw_fill_v, late_wb_reqs_li})
-     ,.grants_o({ptw_fill_yumi, late_wb_grants_lo})
+     ,.reqs_i({late_wb_reqs_li, ptw_fill_v})
+     ,.grants_o({late_wb_grants_lo, ptw_fill_yumi})
      );
 
   bp_be_wb_pkt_s late_wb_pkt_sel;
@@ -475,7 +474,7 @@ module bp_be_calculator_top
 
   assign late_wb_pkt_cast_o = late_wb_pkt_sel;
   assign late_wb_v_o = |late_wb_grants_lo;
-  assign late_wb_force_o = pipe_mem_late_wb_v;
+  assign late_wb_force_o = pipe_mem_late_wb_v | ptw_fill_v;
 
   // If a pipeline has completed an instruction (pipe_xxx_v), then mux in the calculated result.
   // Else, mux in the previous stage of the completion pipe. Since we are single issue and have
