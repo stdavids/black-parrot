@@ -126,11 +126,11 @@ module bp_be_calculator_top
   logic pipe_int_catchup_instr_misaligned_lo, pipe_int_catchup_mispredict_lo;
 
   logic pipe_mem_dtlb_load_miss_lo, pipe_mem_dtlb_store_miss_lo;
-  logic pipe_mem_dcache_load_miss_lo, pipe_mem_dcache_store_miss_lo, pipe_mem_dcache_replay_lo;
+  logic pipe_mem_dcache_load_miss_lo, pipe_mem_dcache_miss_lo, pipe_mem_dcache_replay_lo;
   logic pipe_mem_load_misaligned_lo, pipe_mem_load_access_fault_lo, pipe_mem_load_page_fault_lo;
   logic pipe_mem_store_misaligned_lo, pipe_mem_store_access_fault_lo, pipe_mem_store_page_fault_lo;
 
-  logic pipe_sys_illegal_instr_lo, pipe_sys_csrw_lo;
+  logic pipe_sys_illegal_instr_lo;
 
   logic pipe_int_early_data_v_lo, pipe_int_catchup_data_v_lo, pipe_aux_data_v_lo, pipe_mem_early_data_v_lo, pipe_mem_final_data_v_lo, pipe_sys_data_v_lo, pipe_mul_data_v_lo, pipe_fma_data_v_lo;
   logic pipe_long_idata_v_lo, pipe_long_idata_yumi_lo, pipe_long_fdata_v_lo, pipe_long_fdata_yumi_lo;
@@ -234,7 +234,6 @@ module bp_be_calculator_top
      ,.irq_waiting_o(irq_waiting_o)
 
      ,.illegal_instr_o(pipe_sys_illegal_instr_lo)
-     ,.csrw_o(pipe_sys_csrw_lo)
      ,.data_o(pipe_sys_data_lo)
      ,.v_o(pipe_sys_data_v_lo)
 
@@ -386,8 +385,7 @@ module bp_be_calculator_top
      ,.tlb_store_miss_v_o(pipe_mem_dtlb_store_miss_lo)
      ,.tlb_load_miss_v_o(pipe_mem_dtlb_load_miss_lo)
      ,.cache_replay_v_o(pipe_mem_dcache_replay_lo)
-     ,.cache_load_miss_v_o(pipe_mem_dcache_load_miss_lo)
-     ,.cache_store_miss_v_o(pipe_mem_dcache_store_miss_lo)
+     ,.cache_miss_v_o(pipe_mem_dcache_miss_lo)
      ,.load_misaligned_v_o(pipe_mem_load_misaligned_lo)
      ,.load_access_fault_v_o(pipe_mem_load_access_fault_lo)
      ,.load_page_fault_v_o(pipe_mem_load_page_fault_lo)
@@ -564,7 +562,6 @@ module bp_be_calculator_top
           exc_stage_n[2].queue_v                  &= ~commit_pkt_cast_o.npc_w_v;
 
           exc_stage_n[1].exc.illegal_instr        |= pipe_sys_illegal_instr_lo;
-          exc_stage_n[1].spec.csrw                |= pipe_sys_csrw_lo;
 
           exc_stage_n[1].exc.instr_misaligned     |= pipe_int_early_instr_misaligned_lo & ~exc_stage_r[0].ispec_v;
 
@@ -581,8 +578,7 @@ module bp_be_calculator_top
           exc_stage_n[2].exc.mispredict           |= pipe_int_catchup_mispredict_lo;
 
           exc_stage_n[2].exc.dcache_replay        |= pipe_mem_dcache_replay_lo;
-          exc_stage_n[2].spec.dcache_load_miss    |= pipe_mem_dcache_load_miss_lo;
-          exc_stage_n[2].spec.dcache_store_miss   |= pipe_mem_dcache_store_miss_lo;
+          exc_stage_n[2].spec.dcache_miss         |= pipe_mem_dcache_miss_lo;
           exc_stage_n[2].exc.cmd_full             |= |{exc_stage_r[2].exc, exc_stage_r[2].spec} & cmd_full_n_i;
     end
 
