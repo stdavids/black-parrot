@@ -101,7 +101,9 @@ module bp_be_pipe_accel
 
         ePERF_WL_STALLS = 5'd2,
         ePERF_AL_STALLS = 5'd3,
-        ePANIC_STALLS   = 5'd4
+        ePANIC_STALLS   = 5'd4,
+        eRUNNING_STALLS = 5'd5,
+        eIDLE_STALLS = 5'd6
     } bp_be_pipe_accel_csrs_e;
 
     wire [dpath_width_gp-1:0] csr_mem_data_li = reservation.rs1;
@@ -114,7 +116,8 @@ module bp_be_pipe_accel
     `bsg_mla_csr_create(perf_wl_stalls, ePERF_WL_STALLS, dpath_width_gp, dpath_width_gp);
     `bsg_mla_csr_create(perf_al_stalls, ePERF_AL_STALLS, dpath_width_gp, dpath_width_gp);
     `bsg_mla_csr_create(panic_stalls,   ePANIC_STALLS,   dpath_width_gp, dpath_width_gp);
-    //`bsg_mla_csr_create(idle_cycles,    eIDLE_CYCLES,    dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(running_stalls, eRUNNING_STALLS,    dpath_width_gp, dpath_width_gp);
+    `bsg_mla_csr_create(idle_stalls,    eIDLE_STALLS,    dpath_width_gp, dpath_width_gp);
         // Create the CSR registers and connects to the csr_mem_* logics created before and creates
         // 3 new logics for each CSR:
         //      1. csr_core_``name``_n
@@ -146,6 +149,7 @@ module bp_be_pipe_accel
         end
     end
 
+    logic wl_stalls_running;
     bsg_mla_csr_perf_ctr #
         (.core_width_p(dpath_width_gp))
     perf_wl_stals
@@ -158,9 +162,10 @@ module bp_be_pipe_accel
         ,.core_data_n_o(csr_core_perf_wl_stalls_n)
         ,.core_wen_o(csr_core_perf_wl_stalls_wen)
 
-        ,.running_o()
+        ,.running_o(wl_stalls_running)
         );
 
+    logic al_stalls_running;
     bsg_mla_csr_perf_ctr #
         (.core_width_p(dpath_width_gp))
     perf_al_stals
@@ -173,9 +178,10 @@ module bp_be_pipe_accel
         ,.core_data_n_o(csr_core_perf_al_stalls_n)
         ,.core_wen_o(csr_core_perf_al_stalls_wen)
 
-        ,.running_o()
+        ,.running_o(al_stalls_running)
         );
 
+    logic panic_stalls_running;
     bsg_mla_csr_perf_ctr #
         (.core_width_p(dpath_width_gp))
     panic_stalls
@@ -187,6 +193,40 @@ module bp_be_pipe_accel
         ,.core_data_r_i(csr_core_panic_stalls_r)
         ,.core_data_n_o(csr_core_panic_stalls_n)
         ,.core_wen_o(csr_core_panic_stalls_wen)
+
+        ,.running_o(panic_stalls_running)
+        );
+
+    logic core_running_n, core_stalls_running;
+
+    bsg_mla_csr_perf_ctr #
+        (.core_width_p(dpath_width_gp))
+    running_stalls
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.start_i(core_running_n)
+        ,.stop_i(~core_running_n)
+
+        ,.core_data_r_i(csr_core_running_stalls_r)
+        ,.core_data_n_o(csr_core_running_stalls_n)
+        ,.core_wen_o(csr_core_running_stalls_wen)
+
+        ,.running_o(core_stalls_running)
+        );
+
+    wire idle_stop = core_stalls_running | panic_stalls_running | al_stalls_running | wl_stalls_running;
+
+    bsg_mla_csr_perf_ctr #
+        (.core_width_p(dpath_width_gp))
+    idle_stalls
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.start_i(~idle_stop)
+        ,.stop_i(idle_stop)
+
+        ,.core_data_r_i(csr_core_idle_stalls_r)
+        ,.core_data_n_o(csr_core_idle_stalls_n)
+        ,.core_wen_o(csr_core_idle_stalls_wen)
 
         ,.running_o()
         );
@@ -275,6 +315,7 @@ module bp_be_pipe_accel
     xor_core
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
+        ,.running_o(core_running_n)
 
         ,.op_i(core_op_n)
         ,.data_i(core_data_n)
