@@ -11,6 +11,9 @@ export BP_EXTERNAL_DIR  := $(TOP)/external
 export BASEJUMP_STL_DIR := $(BP_EXTERNAL_DIR)/basejump_stl
 export HARDFLOAT_DIR    := $(BP_EXTERNAL_DIR)/HardFloat
 
+export BP_DMA_DIR            := $(TOP)/bp_dma
+export BASEJUMP_ML_ATOMS_DIR := $(BP_EXTERNAL_DIR)/basejump_ml_atoms
+
 ## Directories to install into
 export BP_RTL_DIR         ?= $(TOP)
 export BP_RTL_INSTALL_DIR := $(BP_RTL_DIR)/install
@@ -24,4 +27,3 @@ include $(BP_TOOLS_DIR)/Makefile.common
 
 export BP_SDK_DIR ?= $(TOP)/../black-parrot-sdk
 include $(BP_SDK_DIR)/Makefile.common
-

@@ -18,10 +18,12 @@
 module bp_be_calculator_top
  import bp_common_pkg::*;
  import bp_be_pkg::*;
+ import bp_me_pkg::*;
  #(parameter bp_params_e bp_params_p = e_bp_default_cfg
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_core_if_widths(vaddr_width_p, paddr_width_p, asid_width_p, branch_metadata_fwd_width_p)
     `declare_bp_be_dcache_engine_if_widths(paddr_width_p, dcache_ctag_width_p, dcache_sets_p, dcache_assoc_p, dword_width_gp, dcache_block_width_p, dcache_fill_width_p)
+    `declare_bp_bedrock_if_widths(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p)
 
    // Generated parameters
    , localparam cfg_bus_width_lp        = `bp_cfg_bus_width(vaddr_width_p, hio_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p, did_width_p)
@@ -46,6 +48,7 @@ module bp_be_calculator_top
    , output logic                                    mem_busy_o
    , output logic                                    mem_ordered_o
    , output logic                                    ptw_busy_o
+   , output logic                                    acc_busy_o
    , output logic [decode_info_width_lp-1:0]         decode_info_o
    , input                                           cmd_full_n_i
 
@@ -96,6 +99,18 @@ module bp_be_calculator_top
    , input [dcache_stat_mem_pkt_width_lp-1:0]        stat_mem_pkt_i
    , output logic                                    stat_mem_pkt_yumi_o
    , output logic [dcache_stat_info_width_lp-1:0]    stat_mem_o
+
+   , input [lce_id_width_p-1:0]                      lce_id_i
+
+   , output logic [mem_fwd_header_width_lp-1:0]      mem_fwd_header_o
+   , output logic [bedrock_fill_width_p-1:0]         mem_fwd_data_o
+   , output logic                                    mem_fwd_v_o
+   , input                                           mem_fwd_ready_and_i
+
+   , input [mem_rev_header_width_lp-1:0]             mem_rev_header_i
+   , input [bedrock_fill_width_p-1:0]                mem_rev_data_i
+   , input                                           mem_rev_v_i
+   , output logic                                    mem_rev_ready_and_o
    );
 
   // Declare parameterizable structs
@@ -218,6 +233,7 @@ module bp_be_calculator_top
   logic [dword_width_gp-1:0] acc_data_lo;
   logic acc_wide_v_lo;
   logic [dcache_block_width_p-1:0] acc_wide_data_lo;
+  logic acc_panic_lo;
   bp_be_pipe_sys
    #(.bp_params_p(bp_params_p))
    pipe_sys
@@ -506,6 +522,35 @@ module bp_be_calculator_top
   assign late_wb_v_o = |late_wb_grants_lo;
   assign late_wb_force_o = pipe_mem_late_wb_v | ptw_fill_v;
 
+
+  bp_be_pipe_acc
+   #(.bp_params_p(bp_params_p))
+   pipe_acc
+    (.clk_i(clk_i)
+     ,.reset_i(reset_i)
+
+     ,.busy_o(acc_busy_o)
+     ,.panic_o(acc_panic_lo)
+
+     ,.instr_i(acc_instr_lo)
+     ,.data_i(acc_data_lo)
+     ,.v_i(acc_v_lo)
+
+     ,.wide_data_i(acc_wide_data_lo)
+     ,.wide_v_i(acc_wide_v_lo)
+
+     // connection to L2
+     ,.lce_id_i(lce_id_i)
+     ,.mem_fwd_header_o(mem_fwd_header_o)
+     ,.mem_fwd_data_o(mem_fwd_data_o)
+     ,.mem_fwd_v_o(mem_fwd_v_o)
+     ,.mem_fwd_ready_and_i(mem_fwd_ready_and_i)
+     ,.mem_rev_header_i(mem_rev_header_i)
+     ,.mem_rev_data_i(mem_rev_data_i)
+     ,.mem_rev_v_i(mem_rev_v_i)
+     ,.mem_rev_ready_and_o(mem_rev_ready_and_o)
+     );
+
   // If a pipeline has completed an instruction (pipe_xxx_v), then mux in the calculated result.
   // Else, mux in the previous stage of the completion pipe. Since we are single issue and have
   //   static latencies, we cannot have two pipelines complete at the same time.
@@ -610,6 +655,7 @@ module bp_be_calculator_top
           exc_stage_n[2].exc.dcache_replay        |= pipe_mem_dcache_replay_lo;
           exc_stage_n[2].spec.dcache_miss         |= pipe_mem_dcache_miss_lo;
           exc_stage_n[2].exc.cmd_full             |= |{exc_stage_r[2].exc, exc_stage_r[2].spec} & cmd_full_n_i;
+          exc_stage_n[2].exc.acc_panic            |= acc_panic_lo;
     end
 
   // Exception pipeline
@@ -622,4 +668,3 @@ module bp_be_calculator_top
      );
 
 endmodule
-

@@ -715,10 +715,12 @@ module bp_be_instr_decoder
                   decode_cast_o.irf_w_v = 1'b1;
                   decode_cast_o.dcache_r_v = 1'b1;
                   decode_cast_o.fu_op = e_dcache_op_bload;
+                  decode_cast_o.pipe_acc_v = 1'b1;
                 end
               `RV64_TENSOR_CSRST:
                 begin
                   /* no-op */
+                  decode_cast_o.pipe_acc_v = 1'b1;
                 end
             endcase
           end
@@ -746,4 +748,3 @@ module bp_be_instr_decoder
     end
 
 endmodule
-

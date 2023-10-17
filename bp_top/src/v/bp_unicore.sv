@@ -88,13 +88,17 @@ module bp_unicore
   localparam icache_proc_id_lp =                     0;
   localparam dcache_proc_id_lp = icache_proc_id_lp + 1;
   localparam io_proc_id_lp     = dcache_proc_id_lp + 1;
-  localparam num_proc_lp       = io_proc_id_lp     + 1;
+  localparam acc_proc_id_lp    = io_proc_id_lp     + 1;
+  localparam dma_rd_proc_id_lp = acc_proc_id_lp    + 1;
+  localparam dma_wr_proc_id_lp = dma_rd_proc_id_lp + 1;
+  localparam num_proc_lp       = dma_wr_proc_id_lp + 1;
   localparam lg_num_proc_lp    = `BSG_SAFE_CLOG2(num_proc_lp);
 
   localparam cfg_dev_id_lp      =                      0;
   localparam clint_dev_id_lp    = cfg_dev_id_lp      + 1;
   localparam l2s_dev_base_id_lp = clint_dev_id_lp    + 1;
-  localparam loopback_dev_id_lp = l2s_dev_base_id_lp + l2_slices_p;
+  localparam dma_dev_id_lp      = l2s_dev_base_id_lp + l2_slices_p;
+  localparam loopback_dev_id_lp = dma_dev_id_lp      + 1;
   localparam io_dev_id_lp       = loopback_dev_id_lp + 1;
   localparam num_dev_lp         = io_dev_id_lp       + 1;
   localparam lg_num_dev_lp      = `BSG_SAFE_CLOG2(num_dev_lp);
@@ -124,15 +128,15 @@ module bp_unicore
      ,.reset_i(reset_r)
      ,.cfg_bus_i(cfg_bus_lo)
 
-     ,.mem_fwd_header_o({proc_fwd_header_lo[dcache_proc_id_lp], proc_fwd_header_lo[icache_proc_id_lp]})
-     ,.mem_fwd_data_o({proc_fwd_data_lo[dcache_proc_id_lp], proc_fwd_data_lo[icache_proc_id_lp]})
-     ,.mem_fwd_v_o({proc_fwd_v_lo[dcache_proc_id_lp], proc_fwd_v_lo[icache_proc_id_lp]})
-     ,.mem_fwd_ready_and_i({proc_fwd_ready_and_li[dcache_proc_id_lp], proc_fwd_ready_and_li[icache_proc_id_lp]})
+     ,.mem_fwd_header_o({proc_fwd_header_lo[acc_proc_id_lp],proc_fwd_header_lo[dcache_proc_id_lp], proc_fwd_header_lo[icache_proc_id_lp]})
+     ,.mem_fwd_data_o({proc_fwd_data_lo[acc_proc_id_lp],proc_fwd_data_lo[dcache_proc_id_lp], proc_fwd_data_lo[icache_proc_id_lp]})
+     ,.mem_fwd_v_o({proc_fwd_v_lo[acc_proc_id_lp],proc_fwd_v_lo[dcache_proc_id_lp], proc_fwd_v_lo[icache_proc_id_lp]})
+     ,.mem_fwd_ready_and_i({proc_fwd_ready_and_li[acc_proc_id_lp],proc_fwd_ready_and_li[dcache_proc_id_lp], proc_fwd_ready_and_li[icache_proc_id_lp]})
 
-     ,.mem_rev_header_i({proc_rev_header_li[dcache_proc_id_lp], proc_rev_header_li[icache_proc_id_lp]})
-     ,.mem_rev_data_i({proc_rev_data_li[dcache_proc_id_lp], proc_rev_data_li[icache_proc_id_lp]})
-     ,.mem_rev_v_i({proc_rev_v_li[dcache_proc_id_lp], proc_rev_v_li[icache_proc_id_lp]})
-     ,.mem_rev_ready_and_o({proc_rev_ready_and_lo[dcache_proc_id_lp], proc_rev_ready_and_lo[icache_proc_id_lp]})
+     ,.mem_rev_header_i({proc_rev_header_li[acc_proc_id_lp],proc_rev_header_li[dcache_proc_id_lp], proc_rev_header_li[icache_proc_id_lp]})
+     ,.mem_rev_data_i({proc_rev_data_li[acc_proc_id_lp],proc_rev_data_li[dcache_proc_id_lp], proc_rev_data_li[icache_proc_id_lp]})
+     ,.mem_rev_v_i({proc_rev_v_li[acc_proc_id_lp],proc_rev_v_li[dcache_proc_id_lp], proc_rev_v_li[icache_proc_id_lp]})
+     ,.mem_rev_ready_and_o({proc_rev_ready_and_lo[acc_proc_id_lp],proc_rev_ready_and_lo[dcache_proc_id_lp], proc_rev_ready_and_lo[icache_proc_id_lp]})
 
      ,.debug_irq_i(debug_irq_li)
      ,.timer_irq_i(timer_irq_li)
@@ -167,10 +171,11 @@ module bp_unicore
       wire is_cfg_fwd      = is_my_core & is_local & (device_fwd_li == cfg_dev_gp);
       wire is_clint_fwd    = is_my_core & is_local & (device_fwd_li == clint_dev_gp);
       wire is_host_fwd     = is_my_core & is_local & (device_fwd_li == host_dev_gp);
+      wire is_dma_fwd      = is_my_core & is_local & (device_fwd_li == dma_dev_gp);
 
       wire is_io_fwd       = is_host_fwd | is_other_hio | is_other_core;
       wire is_l2s_fwd       = ~is_local & ~is_io_fwd;
-      wire is_loopback_fwd = ~is_cfg_fwd & ~is_clint_fwd & ~is_io_fwd & ~is_l2s_fwd;
+      wire is_loopback_fwd = ~is_cfg_fwd & ~is_clint_fwd & ~is_io_fwd & ~is_l2s_fwd & ~is_dma_fwd;
 
       localparam lg_l2_slices_lp = `BSG_SAFE_CLOG2(l2_slices_p);
       logic [lg_l2_slices_lp-1:0] slice_id;
@@ -195,8 +200,9 @@ module bp_unicore
 
       wire [num_dev_lp-1:0] proc_fwd_dst_sel =
         (is_cfg_fwd << cfg_dev_id_lp)
-        | (is_clint_fwd << clint_dev_id_lp) 
-        | (is_l2s_slice_fwd << l2s_dev_base_id_lp) 
+        | (is_clint_fwd << clint_dev_id_lp)
+        | (is_l2s_slice_fwd << l2s_dev_base_id_lp)
+        | (is_dma_fwd << dma_dev_id_lp)
         | (is_loopback_fwd << loopback_dev_id_lp)
         | (is_io_fwd << io_dev_id_lp);
 
@@ -380,5 +386,40 @@ module bp_unicore
      ,.mem_rev_ready_and_i(dev_rev_ready_and_li[loopback_dev_id_lp])
      );
 
-endmodule
+  bp_dma_engine
+   #(.bp_params_p(bp_params_p))
+   dma_engine
+     (.clk_i(clk_i)
+     ,.reset_i(reset_r)
 
+     ,.dev_fwd_header_i(dev_fwd_header_li[dma_dev_id_lp])
+     ,.dev_fwd_data_i(dev_fwd_data_li[dma_dev_id_lp])
+     ,.dev_fwd_v_i(dev_fwd_v_li[dma_dev_id_lp])
+     ,.dev_fwd_ready_and_o(dev_fwd_ready_and_lo[dma_dev_id_lp])
+     ,.dev_rev_header_o(dev_rev_header_lo[dma_dev_id_lp])
+     ,.dev_rev_data_o(dev_rev_data_lo[dma_dev_id_lp])
+     ,.dev_rev_v_o(dev_rev_v_lo[dma_dev_id_lp])
+     ,.dev_rev_ready_and_i(dev_rev_ready_and_li[dma_dev_id_lp])
+
+     ,.proc_rd_lce_id_i(lce_id_width_p'(dma_rd_proc_id_lp))
+     ,.proc_rd_fwd_header_o(proc_fwd_header_lo[dma_rd_proc_id_lp])
+     ,.proc_rd_fwd_data_o(proc_fwd_data_lo[dma_rd_proc_id_lp])
+     ,.proc_rd_fwd_v_o(proc_fwd_v_lo[dma_rd_proc_id_lp])
+     ,.proc_rd_fwd_ready_and_i(proc_fwd_ready_and_li[dma_rd_proc_id_lp])
+     ,.proc_rd_rev_header_i(proc_rev_header_li[dma_rd_proc_id_lp])
+     ,.proc_rd_rev_data_i(proc_rev_data_li[dma_rd_proc_id_lp])
+     ,.proc_rd_rev_v_i(proc_rev_v_li[dma_rd_proc_id_lp])
+     ,.proc_rd_rev_ready_and_o(proc_rev_ready_and_lo[dma_rd_proc_id_lp])
+
+     ,.proc_wr_lce_id_i(lce_id_width_p'(dma_wr_proc_id_lp))
+     ,.proc_wr_fwd_header_o(proc_fwd_header_lo[dma_wr_proc_id_lp])
+     ,.proc_wr_fwd_data_o(proc_fwd_data_lo[dma_wr_proc_id_lp])
+     ,.proc_wr_fwd_v_o(proc_fwd_v_lo[dma_wr_proc_id_lp])
+     ,.proc_wr_fwd_ready_and_i(proc_fwd_ready_and_li[dma_wr_proc_id_lp])
+     ,.proc_wr_rev_header_i(proc_rev_header_li[dma_wr_proc_id_lp])
+     ,.proc_wr_rev_data_i(proc_rev_data_li[dma_wr_proc_id_lp])
+     ,.proc_wr_rev_v_i(proc_rev_v_li[dma_wr_proc_id_lp])
+     ,.proc_wr_rev_ready_and_o(proc_rev_ready_and_lo[dma_wr_proc_id_lp])
+     );
+
+endmodule

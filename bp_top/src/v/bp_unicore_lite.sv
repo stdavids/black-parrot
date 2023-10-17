@@ -23,15 +23,15 @@ module bp_unicore_lite
    , input [cfg_bus_width_lp-1:0]                      cfg_bus_i
 
    // Outgoing BP Stream Mem Buses from I$ and D$
-   , output logic [1:0][mem_fwd_header_width_lp-1:0]   mem_fwd_header_o
-   , output logic [1:0][bedrock_fill_width_p-1:0]      mem_fwd_data_o
-   , output logic [1:0]                                mem_fwd_v_o
-   , input [1:0]                                       mem_fwd_ready_and_i
+   , output logic [2:0][mem_fwd_header_width_lp-1:0]   mem_fwd_header_o
+   , output logic [2:0][bedrock_fill_width_p-1:0]      mem_fwd_data_o
+   , output logic [2:0]                                mem_fwd_v_o
+   , input [2:0]                                       mem_fwd_ready_and_i
 
-   , input [1:0][mem_rev_header_width_lp-1:0]          mem_rev_header_i
-   , input [1:0][bedrock_fill_width_p-1:0]             mem_rev_data_i
-   , input [1:0]                                       mem_rev_v_i
-   , output logic [1:0]                                mem_rev_ready_and_o
+   , input [2:0][mem_rev_header_width_lp-1:0]          mem_rev_header_i
+   , input [2:0][bedrock_fill_width_p-1:0]             mem_rev_data_i
+   , input [2:0]                                       mem_rev_v_i
+   , output logic [2:0]                                mem_rev_ready_and_o
 
    , input                                             debug_irq_i
    , input                                             timer_irq_i
@@ -88,7 +88,8 @@ module bp_unicore_lite
   wire negedge_clk = ~clk_i;
 
   wire [did_width_p-1:0] did_li = cfg_bus_cast_i.did;
-  wire [1:0][lce_id_width_p-1:0] lce_id_li = {cfg_bus_cast_i.dcache_id, cfg_bus_cast_i.icache_id};
+  // TODO set lce_id_li[2] via cfg_bus like the other two
+  wire [2:0][lce_id_width_p-1:0] lce_id_li = {lce_id_width_p'(3), cfg_bus_cast_i.dcache_id, cfg_bus_cast_i.icache_id};
   bp_core_minimal
    #(.bp_params_p(bp_params_p))
    core_minimal
@@ -159,6 +160,18 @@ module bp_unicore_lite
      ,.software_irq_i(software_irq_i)
      ,.m_external_irq_i(m_external_irq_i)
      ,.s_external_irq_i(s_external_irq_i)
+
+     ,.lce_id_i(lce_id_li[2])
+
+     ,.mem_fwd_header_o(mem_fwd_header_o[2])
+     ,.mem_fwd_data_o(mem_fwd_data_o[2])
+     ,.mem_fwd_v_o(mem_fwd_v_o[2])
+     ,.mem_fwd_ready_and_i(mem_fwd_ready_and_i[2])
+
+     ,.mem_rev_header_i(mem_rev_header_i[2])
+     ,.mem_rev_data_i(mem_rev_data_i[2])
+     ,.mem_rev_v_i(mem_rev_v_i[2])
+     ,.mem_rev_ready_and_o(mem_rev_ready_and_o[2])
      );
 
   bp_uce
@@ -308,4 +321,3 @@ module bp_unicore_lite
      );
 
 endmodule
-
