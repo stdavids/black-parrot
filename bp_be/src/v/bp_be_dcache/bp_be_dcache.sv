@@ -1285,7 +1285,7 @@ module bp_be_dcache
       state_n = e_ready;
     else if (blocking_sent)
       state_n = (!hit_under_miss_p | decode_tv_r.cache_op) ? e_serial : e_primary;
-    else if (v_tv_r & any_miss_tv)
+    else if (v_tv_r & any_miss_tv & is_primary)
       state_n = e_serial;
     else
       state_n = state_r;
