@@ -348,6 +348,6 @@ $BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_dff_en_with_v.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_dff_with_v.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_retime_dff.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_mla_shift_reg_with_en.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_dpu/bsg_mla_ws_dpu_bp_neo.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_dpu/bsg_mla_ws_dpu_pe.sv
-$BASEJUMP_ML_ATOMS_DIR/atoms/ws_systolic_array/bsg_ws_systolic_array_fifo_wavefront_out.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/os_dpu/bsg_mla_os_dpu_bp_neo.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/os_dpu/bsg_mla_os_dpu_pe.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/misc/bsg_fifo_1r1w_small_w_bypass.sv

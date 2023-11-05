@@ -722,6 +722,10 @@ module bp_be_instr_decoder
                   /* no-op */
                   decode_cast_o.pipe_acc_v = 1'b1;
                 end
+              default:
+                begin
+                  decode_cast_o.pipe_acc_v = 1'b1;
+                end
             endcase
           end
         default : illegal_instr_o = 1'b1;
