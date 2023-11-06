@@ -160,7 +160,7 @@ module bp_be_pipe_acc
     end
     // synopsys translate_on
 
-    bsg_fifo_1r1w_small #(.width_p(2 + 512),.els_p(4))
+    bsg_fifo_1r1w_small #(.width_p(2 + 512),.els_p(5))
       wide_hit_under_miss_queue
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
@@ -216,7 +216,7 @@ module bp_be_pipe_acc
     assign busy_o = wide_hit_under_miss_queue_v_lo | (v_lo & ~dpu_yumi_lo);
     //assign busy_o = 1'b0;
 
-    assign panic_o = 1'b0;
+    assign panic_o = wide_hit_under_miss_queue_v_lo;
 
     // synopsys translate_off
     always_ff @(posedge clk_i) begin
