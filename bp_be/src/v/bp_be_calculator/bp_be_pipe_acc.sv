@@ -2,17 +2,22 @@
 `include "bp_be_defines.svh"
 `include "bp_me_defines.svh"
 `include "bsg_mla_csr_pkg.svh"
+`include "bsg_mla_defines.svh"
 
 module bp_be_pipe_acc
     import bp_common_pkg::*;
     import bp_be_pkg::*;
     import bp_me_pkg::*;
     import bsg_mla_csr_pkg::*;
+    import bsg_mla_dtype_pkg::*;
 
 #(  parameter bp_params_e bp_params_p = e_bp_default_cfg
 
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_bedrock_if_widths(paddr_width_p, lce_id_width_p, cce_id_width_p, did_width_p, lce_assoc_p)
+
+//,   parameter dtype_p = bf16
+,   parameter dtype_p = test_xor
 
 ,   localparam dispatch_pkt_width_lp = `bp_be_dispatch_pkt_width(vaddr_width_p)
 ,   localparam commit_pkt_width_lp   = `bp_be_commit_pkt_width(vaddr_width_p, paddr_width_p)
@@ -128,7 +133,7 @@ module bp_be_pipe_acc
 
     logic wide_miss_queue_ready_lo, wide_miss_queue_v_lo, wide_miss_queue_last_op;
     logic wide_hit_under_miss_queue_ready_lo, wide_hit_under_miss_queue_v_lo, wide_hit_under_miss_queue_last_op;
-    logic [511:0] wide_hit_under_miss_queue_data;
+    logic [dcache_block_width_p-1:0] wide_hit_under_miss_queue_data;
 
     wire wide_hit  = v_i & decode.wide_op & wide_v_i;
     wire wide_miss = v_i & decode.wide_op & ~wide_v_i;
@@ -160,7 +165,7 @@ module bp_be_pipe_acc
     end
     // synopsys translate_on
 
-    bsg_fifo_1r1w_small #(.width_p(2 + 512),.els_p(5))
+    bsg_fifo_1r1w_small #(.width_p(2 + dcache_block_width_p),.els_p(5))
       wide_hit_under_miss_queue
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
@@ -189,17 +194,17 @@ module bp_be_pipe_acc
                      :                wide_late ? wide_miss_queue_last_op
                      :                            decode.last_op;
 
-    wire [511:0] wide_data_n = hit_under_miss_reordered ? wide_hit_under_miss_queue_data
+    wire [dcache_block_width_p-1:0] wide_data_n = hit_under_miss_reordered ? wide_hit_under_miss_queue_data
                              :                            wide_data_i;
 
     wire wide_data_v = hit_under_miss_reordered | wide_late | wide_hit_no_miss;
 
     logic busy_fifo_ready_lo;
     logic v_lo, act_not_wt_n, last_n;
-    logic [511:0] wdata_n;
+    logic [dcache_block_width_p-1:0] wdata_n;
     logic dpu_v_lo, dpu_yumi_lo;
 
-    bsg_fifo_1r1w_small #(.width_p(2 + 512),.els_p(4))
+    bsg_fifo_1r1w_small #(.width_p(2 + dcache_block_width_p),.els_p(4))
       busy_fifo
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
@@ -226,7 +231,8 @@ module bp_be_pipe_acc
     // synopsys translate_on
 
 
-    bsg_mla_os_dpu_bp_neo
+    bsg_mla_os_dpu_bp_neo #(.dtype_p(dtype_p)
+                           ,.debug_p(1))
       dpu
         (.clk_i(clk_i)
         ,.reset_i(reset_i)
@@ -245,14 +251,25 @@ module bp_be_pipe_acc
     assign fsm_fwd_v_li = dpu_v_lo & dest_v_lo;
 
 
-    always_comb begin
-        fsm_fwd_header_li                = '0;
-        fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
-        fsm_fwd_header_li.addr           = dest_r;
-        fsm_fwd_header_li.size           = e_bedrock_msg_size_64;
-        fsm_fwd_header_li.payload.lce_id = lce_id_i;
-        fsm_fwd_header_li.subop          = e_bedrock_store;
-    end
+    //if (dtype_p == test_xor || dtype_p == fp32) begin
+        always_comb begin
+            fsm_fwd_header_li                = '0;
+            fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
+            fsm_fwd_header_li.addr           = dest_r;
+            fsm_fwd_header_li.size           = e_bedrock_msg_size_64;
+            fsm_fwd_header_li.payload.lce_id = lce_id_i;
+            fsm_fwd_header_li.subop          = e_bedrock_store;
+        end
+    //end else if (dtype_p == bf16) begin
+    //    always_comb begin
+    //        fsm_fwd_header_li                = '0;
+    //        fsm_fwd_header_li.msg_type       = e_bedrock_mem_uc_wr;
+    //        fsm_fwd_header_li.addr           = dest_r;
+    //        fsm_fwd_header_li.size           = e_bedrock_msg_size_128;
+    //        fsm_fwd_header_li.payload.lce_id = lce_id_i;
+    //        fsm_fwd_header_li.subop          = e_bedrock_store;
+    //    end
+    //end
 
     bp_me_stream_pump_out #(.bp_params_p(bp_params_p)
                            ,.fsm_data_width_p(bedrock_fill_width_p)

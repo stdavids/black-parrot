@@ -341,6 +341,9 @@ $BASEJUMP_ML_ATOMS_DIR/atoms/csr/bsg_mla_csr_perf_ctr.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_accumulator_adder.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_dotproduct.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/compute/bsg_mla_fma.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/fp/bsg_mla_fp_preprocess.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/fp/bsg_mla_fp_raw_add.sv
+$BASEJUMP_ML_ATOMS_DIR/atoms/compute/fp/bsg_mla_fp_raw_mul.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_mla_dma_controller.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_mla_dma_controller_addr_gen.sv
 $BASEJUMP_ML_ATOMS_DIR/atoms/dma/bsg_mla_dma_controller_core.sv
